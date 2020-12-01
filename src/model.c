@@ -798,6 +798,7 @@ void add_interactions_from_network(
 		inter1->duration   = UNKNOWN;
 		inter1->individual = indiv2;
 		inter1->next       = indiv1->interactions[ day ];
+		inter1->paired_interaction  = inter2;
 		indiv1->interactions[ day ] = inter1;
 		if( indiv1->n_interactions[ day ] == 0 )
 			indiv1->last_daily_interaction[ day ] = inter1;
@@ -810,6 +811,7 @@ void add_interactions_from_network(
 		inter2->duration   = UNKNOWN;
 		inter2->individual = indiv1;
 		inter2->next       = indiv2->interactions[ day ];
+		inter2->paired_interaction  = inter1;
 		indiv2->interactions[ day ] = inter2;
 		if( indiv2->n_interactions[ day ] == 0 )
 			indiv2->last_daily_interaction[ day ] = inter2;

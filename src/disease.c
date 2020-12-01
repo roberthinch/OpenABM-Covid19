@@ -1,7 +1,5 @@
 /*
  * disease.c
-
-
  *
  *  Created on: 18 Mar 2020
  *      Author: hinchr
@@ -16,6 +14,7 @@
 #include "disease.h"
 #include "structure.h"
 #include "interventions.h"
+#include "exposure.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -180,6 +179,8 @@ void transmit_virus_by_type(
 	event *event, *next_event;
 	interaction *interaction;
 	individual *infector;
+	int use_exposure_model = model->params->exposure_model_use;
+	exposure_parameters *exp_params = model->params->exposure_params;
 
 	for( day = model->time-1; day >= max( 0, model->time - MAX_INFECTIOUS_PERIOD ); day-- )
 	{
@@ -203,9 +204,14 @@ void transmit_virus_by_type(
 
 				for( jdx = 0; jdx < n_interaction; jdx++ )
 				{
+					if( use_exposure_model && ( interaction->duration == UNKNOWN ) )
+						exposure_generate( interaction, exp_params );
+
 					if( interaction->individual->status == SUSCEPTIBLE )
 					{
 						hazard_rate = list->infectious_curve[interaction->type][ t_infect - 1 ];
+						if( use_exposure_model )
+							hazard_rate *= exposure_transmission_factor( exp_params, interaction->duration, interaction->distance );
                         interaction->individual->hazard -= hazard_rate;
 
 						if( interaction->individual->hazard < 0 )

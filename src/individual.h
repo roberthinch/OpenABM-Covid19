@@ -76,6 +76,7 @@ struct interaction{
 	float distance;
 	individual *individual;
 	interaction *next;
+	interaction *paired_interaction;
 };
 
 struct interaction_block{
