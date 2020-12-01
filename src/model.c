@@ -795,18 +795,24 @@ void add_interactions_from_network(
 		inter1->network_id = network->network_id;
 		inter1->traceable  = UNKNOWN;
 		inter1->manual_traceable  = UNKNOWN;
+		inter1->duration   = UNKNOWN;
 		inter1->individual = indiv2;
 		inter1->next       = indiv1->interactions[ day ];
 		indiv1->interactions[ day ] = inter1;
+		if( indiv1->n_interactions[ day ] == 0 )
+			indiv1->last_daily_interaction[ day ] = inter1;
 		indiv1->n_interactions[ day ]++;
 
 		inter2->type       = network->type;
 		inter2->network_id = network->network_id;
 		inter2->traceable  = UNKNOWN;
 		inter2->manual_traceable  = UNKNOWN;
+		inter2->duration   = UNKNOWN;
 		inter2->individual = indiv1;
 		inter2->next       = indiv2->interactions[ day ];
 		indiv2->interactions[ day ] = inter2;
+		if( indiv2->n_interactions[ day ] == 0 )
+			indiv2->last_daily_interaction[ day ] = inter2;
 		indiv2->n_interactions[ day ]++;
 
 		model->n_total_intereactions++;
@@ -1248,10 +1254,7 @@ void return_interactions( model *model )
 		if( n_inter )
 		{
 			first_inter = model->population[pdx].interactions[model->interaction_day_idx];
-			last_inter  = first_inter;
-			for( idx = 0; idx < ( n_inter - 1 ); idx++ )
-				last_inter = last_inter->next;
-
+			last_inter  = model->population[pdx].last_daily_interaction[model->interaction_day_idx];
 			last_inter->next = model->next_interaction;
 			model->next_interaction = first_inter;
 

@@ -33,7 +33,8 @@ struct individual{
 	int random_interactions;
 	int n_interactions[MAX_DAILY_INTERACTIONS_KEPT];
 	interaction *interactions[MAX_DAILY_INTERACTIONS_KEPT];
-
+	interaction *last_daily_interaction[MAX_DAILY_INTERACTIONS_KEPT];
+ 
 	int status;
 	double hazard;
 	event *current_disease_event;
@@ -67,10 +68,12 @@ struct individual{
 };
 
 struct interaction{
-	int type;
-	int network_id;
-	int traceable;
-	int manual_traceable;
+	short type;
+	short network_id;
+	short traceable;
+	short manual_traceable;
+	float duration;
+	float distance;
 	individual *individual;
 	interaction *next;
 };
