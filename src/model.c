@@ -1246,7 +1246,7 @@ int get_network_ids( model *model, int *ids, int max_ids )
 void return_interactions( model *model )
 {
 	long pdx;
-	int n_inter, idx;
+	int n_inter;
 	interaction *first_inter, *last_inter;
 	for( pdx = 0; pdx < model->params->n_total; pdx++ )
 	{
@@ -1257,7 +1257,6 @@ void return_interactions( model *model )
 			last_inter  = model->population[pdx].last_daily_interaction[model->interaction_day_idx];
 			last_inter->next = model->next_interaction;
 			model->next_interaction = first_inter;
-
 		}
 	}
 	return;
