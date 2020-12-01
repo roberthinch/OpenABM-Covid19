@@ -209,3 +209,10 @@
 | `manual_traceable_fraction_occupation` | 0.8 | - | The fraction of occupation contacts that can be successfully traced | - |
 | `manual_traceable_fraction_random` | 0.05 | - | The fraction of random contacts that can be successfully traced | - |
 | `relative_susceptibility_by_interaction` | 1 | - | Type of relative susceptibility by age group (1 = per interaction; 0 = per day) | - |
+| `exposure_model_use` | 0 | - | Use the exposure model of including duration and distance of interaction | - |
+| `exposure_model_distance_mean` | 1.0 | - | Mean distance of interaction in the exposure model (Gamma distributed) | - |
+| `exposure_model_distance_sd` | 0.5 | - | Standard deviation of distance of interation in the exposure model (Gamma distributed) | - |
+| `exposure_model_duration_min` | 1.0 | - | Minimum duration of an interaction in the exposure model (Pareto distributed) | - |
+| `exposure_model_duration_mean` | 5.0 | - | Mean duration of an interaction in the exposure model (Pareto distributed) | - |
+| `exposure_model_risk_distance_half` | 2.0 | - | Distance at which the risk of transimission is has a half of the maximum in the exposure model (logistic function) | - |
+| `exposure_model_risk_distance_width` | 0.5 | - | Width of logisitc function in the risk of transimission in the exposure model (logistic function) | - |

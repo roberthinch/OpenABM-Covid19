@@ -16,6 +16,16 @@
 /************************************************************************/
 
 typedef struct{
+	float distance_mean;  	   // mean of the distribution of distance of exposure (Gamma distribution)
+	float distance_sd;		   // sd of the distribution of distance of exposure (Gamma distribution)
+	float duration_min;		   // min of the distribution of the duration of exposure (Pareto distribution)
+	float duration_mean;	   // mean of the distribution of the duration of exposure (Pareto distribution)
+	float risk_duration_half;  // distance at which risk of transmission is cut by half (logisitc function)
+	float risk_duration_width; // width of distance over which risk of transmission changes (logisitc function)
+
+} exposure_parameters;
+
+typedef struct{
 	long rng_seed; 					// number used to seed the GSL RNG
 	char input_param_file[INPUT_CHAR_LEN];	// path to input parameter file
 	char hospital_input_param_file[INPUT_CHAR_LEN];	// path to input parameter file
@@ -194,6 +204,8 @@ typedef struct{
 	//average amount of interactions healthcare workers have with each other per day
 	double hcw_mean_work_interactions;
 
+	short exposure_model_use;
+	exposure_parameters *exposure_params;
 } parameters;
 
 /************************************************************************/

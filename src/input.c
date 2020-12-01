@@ -104,6 +104,50 @@ void read_command_line_args( parameters *params, int argc, char **argv )
 }
 
 /*****************************************************************************************
+*  Name:		read_long
+******************************************************************************************/
+void read_long( FILE *file, long *param, char *s )
+{
+	int check = fscanf( file, " %li ,", param);
+	if( check < 1){ print_exit( s ); };
+}
+
+/*****************************************************************************************
+*  Name:		read_int
+******************************************************************************************/
+void read_int( FILE *file, int *param, char *s )
+{
+	int check = fscanf( file, " %i ,", param);
+	if( check < 1){ print_exit( s ); };
+}
+
+/*****************************************************************************************
+*  Name:		read_short
+******************************************************************************************/
+void read_short( FILE *file, short *param, char *s )
+{
+	int check = fscanf( file, " %hi ,", param);
+	if( check < 1){ print_exit( s ); };
+}
+/*****************************************************************************************
+*  Name:		read_float
+******************************************************************************************/
+void read_float( FILE *file, float *param, char *s )
+{
+	int check = fscanf( file, " %f ,", param);
+	if( check < 1){ print_exit( s ); };
+}
+
+/*****************************************************************************************
+*  Name:		read_double
+******************************************************************************************/
+void read_double( FILE *file, double *param, char *s )
+{
+	int check = fscanf( file, " %lf ,", param);
+	if( check < 1){ print_exit( s ); };
+}
+
+/*****************************************************************************************
 *  Name:		read_param_file
 *  Description: Read line from parameter file (csv), attach parame values to params struct
 ******************************************************************************************/
@@ -485,9 +529,16 @@ void read_param_file( parameters *params)
 	if( check < 1){ print_exit("Failed to read parameter manual_traceable_fraction_occupation\n"); };
 	check = fscanf(parameter_file, " %lf ,", &(params->manual_traceable_fraction[RANDOM]));
 	if( check < 1){ print_exit("Failed to read parameter manual_traceable_fraction_random\n"); };
-
+	check = fscanf(parameter_file, " %i ,", &(params->relative_susceptibility_by_interaction));
 	if( check < 1){ print_exit("Failed to read parameter relative_susceptibility_by_interaction\n"); };
-		check = fscanf(parameter_file, " %i ,", &(params->relative_susceptibility_by_interaction));
+
+	read_short( parameter_file, &(params->exposure_model_use),                   "Failed to read parameter exposure_model_use" );
+	read_float( parameter_file, &(params->exposure_params->distance_mean),       "Failed to read parameter exposure_model_distance_mean" );
+    read_float( parameter_file, &(params->exposure_params->distance_sd),         "Failed to read parameter exposure_model_distance_sd" );
+ 	read_float( parameter_file, &(params->exposure_params->duration_min),        "Failed to read parameter exposure_duration_min" );
+	read_float( parameter_file, &(params->exposure_params->duration_mean),       "Failed to read parameter exposure_duration_mean" );
+	read_float( parameter_file, &(params->exposure_params->risk_duration_half),  "Failed to read parameter exposure_duration_risk_duration_half" );
+ 	read_float( parameter_file, &(params->exposure_params->risk_duration_width), "Failed to read parameter exposure_duration_risk_duration_width" );
 
 	fclose(parameter_file);
 }

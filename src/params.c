@@ -24,6 +24,7 @@ void initialize_params( parameters *params )
 {
 	params->demo_house = NULL;
 	params->occupation_network_table = NULL;
+	params->exposure_params = calloc( 1, sizeof( exposure_parameters ) );
 }
 
 /*****************************************************************************************
@@ -1437,4 +1438,5 @@ void destroy_params( parameters *params )
 	if ( params->occupation_network_table != NULL )
 	    destroy_occupation_network_table(params);
 
+	free( params->exposure_params );
 }
