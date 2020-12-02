@@ -14,7 +14,7 @@ endif
 PIP_FLAGS := --upgrade
 
 
-OBJS = exposure.o utilities.o constant.o demographics.o params.o model.o individual.o main.o input.o network.o disease.o interventions.o hospital.o doctor.o nurse.o ward.o list.o
+OBJS = utilities.o constant.o demographics.o params.o model.o individual.o main.o input.o network.o exposure.o disease.o interventions.o hospital.o doctor.o nurse.o ward.o list.o
 
 GSLFLAGS= -lgsl -lgslcblas -lm -O3
 LFLAGS = $(GSLFLAGS)

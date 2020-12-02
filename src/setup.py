@@ -14,6 +14,7 @@ covid19_module = Extension(
         "demographics.c",
         "disease.c",
         "doctor.c",
+        "exposure.c",
         "hospital.c",
         "individual.c",
         "input.c",

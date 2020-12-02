@@ -8,6 +8,7 @@
 #include "constant.h"
 #include "input.h"
 #include "individual.h"
+#include "exposure.h"
 #include "utilities.h"
 #include "disease.h"
 #include "network.h"
@@ -44,6 +45,7 @@
 %include "input.h"
 %include "individual.h"
 %include "utilities.h"
+%include "exposure.h"
 %include "disease.h"
 %include "network.h"
 %include model_utils.i 

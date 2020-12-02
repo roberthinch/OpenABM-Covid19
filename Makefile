@@ -47,7 +47,7 @@ C_SRC= $(SWIG_COUT) src/constant.c src/constant.h src/demographics.c \
 	src/input.h src/interventions.c src/interventions.h src/list.c src/list.h \
 	src/model.c src/model.h src/network.c src/network.h src/nurse.c \
 	src/nurse.h src/params.c src/params.h src/structure.h src/utilities.c \
-	src/utilities.h src/ward.c src/ward.h
+	src/utilities.h src/exposure.h src/ward.c src/ward.h
 DOCS= man/swig_methods.Rd
 CONTENT = NAMESPACE DESCRIPTION LICENSE $(R_SRC) $(C_SRC) $(DOCS)
 

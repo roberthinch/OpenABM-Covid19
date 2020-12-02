@@ -5,15 +5,23 @@
  *      Author: hinchr
  */
 
-#ifndef SRC_EXPOSURE_H_
-#define SRC_EXPOSURE_H_
+#ifndef EXPOSURE_H_
+#define EXPOSURE_H_
+
+/************************************************************************/
+/******************************* Includes *******************************/
+/************************************************************************/
 
 #include "params.h"
 #include "individual.h"
 
-void exposure_generate( interaction*, exposure_parameters* );
+/************************************************************************/
+/******************************  Functions  *****************************/
+/************************************************************************/
+
 float exposure_duration_sample( exposure_parameters* );
 float exposure_distance_sample( exposure_parameters* );
 float exposure_transmission_factor( exposure_parameters*, float, float );
+void exposure_generate( interaction*, exposure_parameters* );
 
-#endif /* SRC_EXPOSURE_H_ */
+#endif /* EXPOSURE_H_ */
