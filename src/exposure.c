@@ -50,3 +50,12 @@ float exposure_transmission_factor( exposure_parameters *params, float distance,
 {
 	return( duration / params->duration_mean );
 }
+
+/*****************************************************************************************
+*  Name:		exposure_risk_score
+*  Description: Calculates the risk score of a single interaction
+******************************************************************************************/
+float exposure_risk_score( exposure_parameters *params, int contact_time, float distance, float duration )
+{
+	return( duration / params->duration_mean );
+}
