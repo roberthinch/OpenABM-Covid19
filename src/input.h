@@ -27,6 +27,7 @@ void read_hospital_param_file( parameters *);
 void set_up_reference_household_memory(parameters *params);
 void write_output_files(model *, parameters *);
 void write_individual_file(model *, parameters *);
+void write_interactions_past( model*, int );
 void write_interactions( model* );
 void write_transmissions( model* );
 void write_trace_tokens( model* );

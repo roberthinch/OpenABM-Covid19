@@ -19,10 +19,10 @@ void exposure_generate( interaction *inter, exposure_parameters *params )
 }
 
 /*****************************************************************************************
-*  Name:		exposure_duration_sample
-*  Description: Samples the duration of an exposure
+*  Name:		exposure_distance_sample
+*  Description: Samples the distance of an exposure
 ******************************************************************************************/
-float exposure_duration_sample( exposure_parameters *params )
+float exposure_distance_sample( exposure_parameters *params )
 {
 	double a, b;
 	b = params->distance_sd * params->distance_sd / params->distance_mean;
@@ -31,10 +31,10 @@ float exposure_duration_sample( exposure_parameters *params )
 }
 
 /*****************************************************************************************
-*  Name:		exposure_distance_sample
-*  Description: Samples the distance of an exposure
+*  Name:		exposure_duration_sample
+*  Description: Samples the duration of an exposure
 ******************************************************************************************/
-float exposure_distance_sample( exposure_parameters *params )
+float exposure_duration_sample( exposure_parameters *params )
 {
 	double a;
 	a = params->duration_mean / ( params->duration_mean - params->duration_min );
