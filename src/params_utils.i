@@ -4,6 +4,78 @@
 
 %inline %{
 /*****************************************************************************************
+*  Name:        get_param_exposure_model_dct_ens
+*  Description: Gets the value of an short parameter
+******************************************************************************************/
+short get_param_exposure_model_dct_ens(parameters *params)
+{
+    return params->exposure_params->dct_ens;
+}
+
+/*****************************************************************************************
+*  Name:        get_param_exposure_model_dct_ens_risk_threshold
+*  Description: Gets the value of parameter
+******************************************************************************************/
+float get_param_exposure_model_dct_ens_risk_threshold(parameters *params)
+{
+	return params->exposure_params->dct_ens_risk_threshold;
+}
+
+/*****************************************************************************************
+*  Name:        get_param_exposure_model_distance_mean
+*  Description: Gets the value of parameter
+******************************************************************************************/
+float get_param_exposure_model_distance_mean(parameters *params)
+{
+	return params->exposure_params->distance_mean;
+}
+
+/*****************************************************************************************
+*  Name:        get_param_exposure_model_distance_sd
+*  Description: Gets the value of parameter
+******************************************************************************************/
+float get_param_exposure_model_distance_sd(parameters *params)
+{
+	return params->exposure_params->distance_sd;
+}
+
+/*****************************************************************************************
+*  Name:        get_param_exposure_model_duration_mean
+*  Description: Gets the value of parameter
+******************************************************************************************/
+float get_param_exposure_model_duration_mean(parameters *params)
+{
+	return params->exposure_params->duration_mean;
+}
+
+/*****************************************************************************************
+*  Name:        get_param_exposure_model_duration_min
+*  Description: Gets the value of parameter
+******************************************************************************************/
+float get_param_exposure_model_duration_min(parameters *params)
+{
+	return params->exposure_params->duration_min;
+}
+
+/*****************************************************************************************
+*  Name:        get_param_exposure_model_risk_duration_half
+*  Description: Gets the value of parameter
+******************************************************************************************/
+float get_param_exposure_model_risk_duration_half(parameters *params)
+{
+	return params->exposure_params->risk_duration_half;
+}
+
+/*****************************************************************************************
+*  Name:        get_param_exposure_model_risk_duration_width
+*  Description: Gets the value of parameter
+******************************************************************************************/
+float get_param_exposure_model_risk_duration_width(parameters *params)
+{
+	return params->exposure_params->risk_duration_width;
+}
+
+/*****************************************************************************************
 *  Name:        get_param_quarantine_days
 *  Description: Gets the value of an int parameter
 ******************************************************************************************/
@@ -895,6 +967,86 @@ int set_param_param_id(parameters *params, double value)
 int set_param_n_total(parameters *params, double value)
 {
     params->n_total = value;
+    return TRUE;
+}
+
+/*****************************************************************************************
+*  Name:        set_param_exposure_model_dct_ens
+*  Description: Sets the value of parameter
+******************************************************************************************/
+int set_param_exposure_model_dct_ens(parameters *params, short value)
+{
+	params->exposure_params->dct_ens = value;
+    return TRUE;
+}
+
+/*****************************************************************************************
+*  Name:        set_param_exposure_model_dct_ens_risk_threshold
+*  Description: Sets the value of parameter
+******************************************************************************************/
+int set_param_exposure_model_dct_ens_risk_threshold(parameters *params, float value)
+{
+	params->exposure_params->dct_ens_risk_threshold = value;
+    return TRUE;
+}
+
+/*****************************************************************************************
+*  Name:        set_param_exposure_model_distance_mean
+*  Description: Sets the value of parameter
+******************************************************************************************/
+int set_param_exposure_model_distance_mean(parameters *params, float value)
+{
+	params->exposure_params->distance_mean = value;
+    return TRUE;
+}
+
+/*****************************************************************************************
+*  Name:        set_param_exposure_model_distance_sd
+*  Description: Sets the value of parameter
+******************************************************************************************/
+int set_param_exposure_model_distance_sd(parameters *params, float value)
+{
+	params->exposure_params->distance_sd = value;
+    return TRUE;
+}
+
+/*****************************************************************************************
+*  Name:        set_param_exposure_model_duration_mean
+*  Description: Sets the value of parameter
+******************************************************************************************/
+int set_param_exposure_model_duration_mean(parameters *params, float value)
+{
+	params->exposure_params->duration_mean = value;
+    return TRUE;
+}
+
+/*****************************************************************************************
+*  Name:        set_param_exposure_model_duration_min
+*  Description: Sets the value of parameter
+******************************************************************************************/
+int set_param_exposure_model_duration_min(parameters *params, float value)
+{
+	params->exposure_params->duration_min = value;
+    return TRUE;
+}
+
+/*****************************************************************************************
+*  Name:        set_param_exposure_model_risk_duration_half
+*  Description: Sets the value of parameter
+******************************************************************************************/
+int set_param_exposure_model_risk_duration_half(parameters *params, float value)
+{
+	params->exposure_params->risk_duration_half = value;
+    return TRUE;
+}
+
+/*****************************************************************************************
+*  Name:        set_param_exposure_model_risk_duration_width
+*  Description: Sets the value of parameter
+******************************************************************************************/
+int set_param_exposure_model_risk_duration_width(parameters *params, float value)
+{
+	params->exposure_params->risk_duration_width = value;
     return TRUE;
 }
 
