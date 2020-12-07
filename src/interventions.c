@@ -1074,10 +1074,15 @@ void intervention_on_traced_ens(
 	// to prevent scoring multiple times adjust the traceable token
 	interaction->traceable = TRACEABLE_TRACED;
 
+	// if risk exposure is not known (i.e. interaction prior to infection), then draw it here
+	if( interaction->duration == UNKNOWN )
+		exposure_generate( interaction, model->params->exposure_params );
+
 	// calculate risk score and add to risk score
 	float risk_score = exposure_risk_score( params->exposure_params, contact_days, interaction->distance, interaction->duration );
 	indiv->ens_risk_score += risk_score;
-	indiv->ens_risk_score_by_day[ ring_add( model->interaction_day_idx, params->quarantine_days - contact_days, params->days_of_interactions ) ] += risk_score;
+	int remove_day = ring_add( model->interaction_day_idx, params->quarantine_days - contact_days, params->days_of_interactions );
+	indiv->ens_risk_score_by_day[ remove_day ] += risk_score;
 
 	// if risk score is
 	if( indiv->ens_risk_score > params->exposure_params->dct_ens_risk_threshold )
