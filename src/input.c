@@ -976,6 +976,15 @@ void set_up_reference_household_memory(parameters *params){
 ******************************************************************************************/
 void write_interactions( model *model )
 {
+	write_interactions_past( model, 0 );
+}
+
+/*****************************************************************************************
+*  Name:		write_interactions_past
+*  Description: write interactions details
+******************************************************************************************/
+void write_interactions_past( model *model, int days_ago )
+{
 	char output_file_name[INPUT_CHAR_LEN];
 	FILE *output_file;
 	long pdx, time;
@@ -998,6 +1007,15 @@ void write_interactions( model *model )
 	ring_dec( day, model->params->days_of_interactions );
 	time = model->time - 1;
 
+	if( ( days_ago >= model->params->days_of_interactions ) || days_ago < 0 )
+		print_exit( "Days_ago must be less than the parameter days of interact" );
+
+	for( pdx = 0; pdx < days_ago; pdx++ )
+	{
+		ring_dec( day, model->params->days_of_interactions );
+		time = model->time - 1;
+	}
+
 	fprintf(output_file ,"ID_1,age_group_1,worker_type_1,house_no_1,occupation_network_1,type,network_id,ID_2,age_group_2,worker_type_2,house_no_2,occupation_network_2,traceable,manual_traceable,time,duration,distance\n");
 	for( pdx = 0; pdx < model->params->n_total; pdx++ )
 	{
@@ -1009,7 +1027,7 @@ void write_interactions( model *model )
 			inter = indiv->interactions[day];
 			for( idx = 0; idx < indiv->n_interactions[day]; idx++ )
 			{
-				fprintf(output_file ,"%li,%i,%i,%li,%i,%i,%i,%li,%i,%i,%li,%i,%i,%i,%.3f,%.3f,%li\n",
+				fprintf(output_file ,"%li,%i,%i,%li,%i,%i,%i,%li,%i,%i,%li,%i,%i,%i,%li,%.3f,%.3f\n",
 					indiv->idx,
 					indiv->age_group,
 					indiv->worker_type,
@@ -1024,9 +1042,9 @@ void write_interactions( model *model )
 					inter->individual->occupation_network,
 					inter->traceable,
 					inter->manual_traceable,
+					time,
 					inter->duration,
-					inter->distance,
-					time
+					inter->distance
 				);
 				inter = inter->next;
 			}

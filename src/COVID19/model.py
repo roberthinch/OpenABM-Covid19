@@ -916,8 +916,8 @@ class Model:
     def write_individual_file(self):
         covid19.write_individual_file(self.c_model, self.c_params)
 
-    def write_interactions_file(self):
-        covid19.write_interactions(self.c_model)
+    def write_interactions_file(self, days_ago=0):
+        covid19.write_interactions_past(self.c_model,days_ago)
 
     def write_trace_tokens_timeseries(self):
         covid19.write_trace_tokens_ts(self.c_model)
