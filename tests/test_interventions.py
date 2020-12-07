@@ -930,8 +930,9 @@ class TestClass(object):
             dict(
                 test_params=dict(
                     n_total=50000,
-                    end_time=25,
-                    infectious_rate=4,
+                    n_seed_infection = 500,
+                    end_time=15,
+                    infectious_rate=6,
                     self_quarantine_fraction=1.0,
                     test_on_symptoms  = True,
                     daily_non_cov_symptoms_rate=0.0,
@@ -940,6 +941,7 @@ class TestClass(object):
                     trace_on_positive = True,
                     quarantine_on_traced = True,
                     app_turn_on_time = 1,
+                    quarantine_days = 3,
                     exposure_model_use=1, 
                     exposure_model_dct_ens=1
                 )  
@@ -2383,22 +2385,44 @@ class TestClass(object):
         """
         Check that the ENS exposure risk score is calculated correctly        
         """
+        
+        duration_mean = 5
                 
         params = utils.get_params_swig()
         for param, value in test_params.items():
             params.set_param( param, value )
         model  = utils.get_model_swig( params )
 
-        for time in range( test_params[ "end_time" ] ):
+        for time in range( test_params[ "end_time" ] - test_params[ "quarantine_days" ] ):
             model.one_time_step()
-            
-        # write files
-        model.write_interactions_file()
-        model.write_individual_file()
-        df_inter = pd.read_csv(constant.TEST_INTERACTION_FILE)
-        df_indiv = pd.read_csv( constant.TEST_INDIVIDUAL_FILE, comment="#", sep=",", skipinitialspace=True )
 
-        print( df_indiv["ens_risk_score"].sum() )
+        # get the interactions that have been ENS traced for all the days which are kept
+        model.write_interactions_file()
+        df_inter     = pd.read_csv(constant.TEST_INTERACTION_FILE)
+        df_all_inter = df_inter[ df_inter[ "traceable"] == 2 ].loc[:,["ID_2","duration","distance","time"]];
+   
+        for time in range( test_params[ "quarantine_days" ] - 1  ):
+            model.write_interactions_file(1+time)
+            df_inter     = pd.read_csv(constant.TEST_INTERACTION_FILE)
+            df_inter     = df_inter[ df_inter[ "traceable"] == 2 ].loc[:,["ID_2","duration","distance","time"]];
+            df_all_inter = pd.concat( [ df_all_inter, df_inter ] )
+                                                     
+        # get the individual risk scores
+        model.write_individual_file()
+        df_indiv = pd.read_csv( constant.TEST_INDIVIDUAL_FILE, comment="#", sep=",", skipinitialspace=True )
+        df_indiv = df_indiv[ df_indiv[ "app_user"] == True ].loc[:,["ID","ens_risk_score"]]
+        df_indiv = df_indiv[ df_indiv[ "ens_risk_score"] > 0 ]
+        
+        # now join together
+        df_all_inter[ "expected_score" ] = df_all_inter[ "duration" ] / duration_mean;
+        df_all_inter.rename( columns = { "ID_2":"ID"}, inplace = True )
+        df_expected = df_all_inter.loc[:,{"ID","expected_score"}].groupby("ID").sum()
+                
+        df = pd.merge( df_indiv, df_expected, on = "ID", how = "inner") 
+    
+        np.testing.assert_( len( df ) > 100, "Insufficient ENS trace scores to test" )
+        np.testing.assert_array_almost_equal(df["expected_score"], df["ens_risk_score"], 0.001, "Expected ENS score incorrect")
+        
    
         
       
