@@ -13,6 +13,7 @@
 #include "network.h"
 #include "disease.h"
 #include "interventions.h"
+#include "exposure.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -390,7 +391,7 @@ int number_of_traceable_interactions(model *model, individual *indiv)
 				{
 					if( inter->traceable == UNKNOWN )
 						inter->traceable = gsl_ran_bernoulli( rng, params->traceable_interaction_fraction );
-					if( inter->traceable )
+					if( inter->traceable > 0 )
                         contacts[ traceable_inter++ ] = contact->idx;
 				}
 				inter = inter->next;
@@ -456,6 +457,28 @@ int intervention_quarantine_until(
 	if( indiv->traced_on_this_trace < 1 )
 		return FALSE;
 
+	return intervention_quarantine_until_simple( model, indiv, time, maxof );
+}
+
+/*****************************************************************************************
+*  Name:		intervention_quarantine_until_simple
+*  Description: Quarantine an individual until a certain time (no trace tokens)
+*
+*  				If they are already in quarantine then extend quarantine until that time
+*
+*  Returns:		TRUE/FALSE - TRUE when quarantining
+*  							 FALSE when not quarantining
+******************************************************************************************/
+int intervention_quarantine_until_simple(
+	model *model,
+	individual *indiv,
+	int time,
+	int maxof
+)
+{
+	if( is_in_hospital( indiv ) )
+		return FALSE;
+
 	if( time <= model->time )
 		return FALSE;
 
@@ -477,6 +500,7 @@ int intervention_quarantine_until(
 
 	return TRUE;
 }
+
 
 /*****************************************************************************************
 *  Name:		intervention_quarantine_release
@@ -668,8 +692,14 @@ void intervention_notify_contacts(
 				{
 					if( inter->traceable == UNKNOWN )
 						inter->traceable = gsl_ran_bernoulli( rng, params->traceable_interaction_fraction );
-					if( inter->traceable == 1 )
-						intervention_on_traced( model, contact, model->time - ddx, recursion_level, index_token, risk_scores[ contact->age_group ], trace_type );
+					if( inter->traceable == TRACEABLE_UNTRACED )
+					{
+						if( params->exposure_params->dct_ens == FALSE ) {
+							intervention_on_traced( model, contact, model->time - ddx, recursion_level, index_token, risk_scores[ contact->age_group ], trace_type ); }
+						else
+							intervention_on_traced_ens( model, inter, model->time - ddx );
+					}
+
 				}
 				else if( trace_type == MANUAL_TRACE )
 				{
@@ -1012,6 +1042,90 @@ void intervention_on_critical( model *model, individual *indiv )
 {
 	if( !model->params->interventions_on )
 		return;
+}
+
+/*****************************************************************************************
+*  Name:		intervention_on_traced_ens
+*  Description: Optional interventions performed upon becoming contact-traced using the
+*  				exposure notification system
+*
+*   			1. Calculate risk score for the current interaction and add totals
+*   			2. If exceeds the threshold then ask individual to quarantine
+*   			3. If the individual is already an index case then do nothing
+*   			4. The individual gets an index_trace_token, since quarantine reason
+*   			   can't be linked to a single individual (also prevents new messages to quarantine)
+*
+*  Arguments:	model 		 	- pointer to model
+*  				interaction		- pointer to the relevant interaction
+*  				contact_time 	- time since interaction
+*
+*  Returns:		void
+******************************************************************************************/
+void intervention_on_traced_ens(
+	model *model,
+	interaction *interaction,
+	int contact_time
+)
+{
+	individual *indiv  = interaction->individual;
+	parameters *params = model->params;
+	int contact_days = model->time - contact_time;
+
+	// to prevent scoring multiple times adjust the traceable token
+	interaction->traceable = TRACEABLE_TRACED;
+
+	// calculate risk score and add to risk score
+	float risk_score = exposure_risk_score( params->exposure_params, contact_days, interaction->distance, interaction->duration );
+	indiv->ens_risk_score += risk_score;
+	indiv->ens_risk_score_by_day[ ring_add( model->interaction_day_idx, params->quarantine_days - contact_days, params->days_of_interactions ) ] += risk_score;
+
+	// if risk score is
+	if( indiv->ens_risk_score > params->exposure_params->dct_ens_risk_threshold )
+	{
+		if( indiv->index_trace_token == NULL )
+		{
+			indiv->index_trace_token = index_trace_token( model, indiv );
+			indiv->index_trace_token->index_status = ENS_TRACED;
+
+			if( params->quarantine_on_traced )
+			{
+				if( gsl_ran_bernoulli( rng, params->quarantine_compliance_traced_positive ) )
+				{
+					int time_event = contact_time + sample_transition_time( model, TRACED_QUARANTINE_POSITIVE );
+					int quarantine = intervention_quarantine_until_simple( model, indiv, contact_time, TRUE );
+
+					if( quarantine )
+					{
+						if( params->quarantine_household_on_traced_positive )
+							intervention_quarantine_household( model, indiv, time_event, FALSE, indiv->index_trace_token, contact_time );
+					}
+				}
+			}
+			indiv->index_token_release_event = add_individual_to_event_list( model, TRACE_TOKEN_RELEASE, indiv, model->time + model->params->quarantine_length_traced_positive );
+		}
+	}
+}
+
+/*****************************************************************************************
+*  Name:		intervention_expire_ens_risk_scores
+*  Description: Removes expired risk scores from interactions longer ago than the
+*  				maximum time for which they are kept
+*
+*  Arguments:	model - pointer to model
+*
+*  Returns:		void
+******************************************************************************************/
+void intervention_expire_ens_risk_scores( model *model )
+{
+	long pdx;
+	int day = model->interaction_day_idx;
+
+	for( pdx = 0; pdx <= model->params->n_total; pdx++ )
+		if( model->population[ pdx ].ens_risk_score_by_day[ day ] > 0 )
+		{
+			model->population[ pdx ].ens_risk_score -= model->population[ pdx ].ens_risk_score_by_day[ day ];
+			model->population[ pdx ].ens_risk_score_by_day[ day ] = 0;
+		}
 }
 
 /*****************************************************************************************

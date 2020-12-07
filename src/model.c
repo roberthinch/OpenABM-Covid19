@@ -1322,6 +1322,9 @@ int one_time_step( model *model )
 	if( model->params->quarantine_smart_release_day > 0 )
 		intervention_smart_release( model );
 
+	if( model->params->exposure_params->dct_ens )
+		intervention_expire_ens_risk_scores( model );
+
 	model->n_quarantine_days += model->event_lists[QUARANTINED].n_current;
 
 	ring_inc( model->interaction_day_idx, model->params->days_of_interactions );

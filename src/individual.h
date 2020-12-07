@@ -53,6 +53,9 @@ struct individual{
 
 	int app_user;
 
+	float ens_risk_score;
+	float ens_risk_score_by_day[MAX_DAILY_INTERACTIONS_KEPT];
+
 	int ward_idx;
 	int ward_type;
 

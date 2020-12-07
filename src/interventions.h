@@ -44,6 +44,7 @@ void remove_traces_on_individual( model*, individual* );
 void intervention_trace_token_release( model*, individual* );
 
 int intervention_quarantine_until( model*, individual*, individual*, int, int, trace_token*, int, double );
+int intervention_quarantine_until_simple( model*, individual*, int, int );
 void intervention_quarantine_release( model*, individual* );
 void intervention_quarantine_household( model*, individual*, int, int, trace_token*, int );
 void intervention_test_take( model*, individual* );
@@ -57,8 +58,10 @@ void intervention_on_hospitalised( model*, individual* );
 void intervention_on_critical( model*, individual* );
 void intervention_on_positive_result( model*, individual* );
 void intervention_on_traced( model*, individual*, int, int, trace_token*, double, int );
+void intervention_on_traced_ens( model*, interaction*, int );
 
 void intervention_smart_release( model* );
+void intervention_expire_ens_risk_scores( model* );
 int resolve_quarantine_reasons(int *);
 
 #endif /* INTERVENTIONS_H_ */

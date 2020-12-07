@@ -926,6 +926,25 @@ class TestClass(object):
                 )
             )
         ],
+        "test_ens_risk_score" : [
+            dict(
+                test_params=dict(
+                    n_total=50000,
+                    end_time=25,
+                    infectious_rate=4,
+                    self_quarantine_fraction=1.0,
+                    test_on_symptoms  = True,
+                    daily_non_cov_symptoms_rate=0.0,
+                    test_order_wait  = 0,
+                    test_result_wait = 0,  
+                    trace_on_positive = True,
+                    quarantine_on_traced = True,
+                    app_turn_on_time = 1,
+                    exposure_model_use=1, 
+                    exposure_model_dct_ens=1
+                )  
+            )
+        ]
     }
     """
     Test class for checking
@@ -2359,5 +2378,27 @@ class TestClass(object):
             np.testing.assert_equal( covid19.utils_n_current( model.c_model, covid19.TEST_RESULT ), 0, "People still waiting for test results on day they should be processed" );
             np.testing.assert_equal( covid19.utils_n_current( model.c_model, covid19.MANUAL_CONTACT_TRACING ), 0, "People still waiting for manual contact tracing on day they should be processed" );
             
+    
+    def test_ens_risk_score(self, test_params ):
+        """
+        Check that the ENS exposure risk score is calculated correctly        
+        """
+                
+        params = utils.get_params_swig()
+        for param, value in test_params.items():
+            params.set_param( param, value )
+        model  = utils.get_model_swig( params )
+
+        for time in range( test_params[ "end_time" ] ):
+            model.one_time_step()
+            
+        # write files
+        model.write_interactions_file()
+        model.write_individual_file()
+        df_inter = pd.read_csv(constant.TEST_INTERACTION_FILE)
+        df_indiv = pd.read_csv( constant.TEST_INDIVIDUAL_FILE, comment="#", sep=",", skipinitialspace=True )
+
+        print( df_indiv["ens_risk_score"].sum() )
+   
         
       
