@@ -216,3 +216,5 @@
 | `exposure_model_duration_mean` | 5.0 | - | Mean duration of an interaction in the exposure model (Pareto distributed) | - |
 | `exposure_model_risk_distance_half` | 2.0 | - | Distance at which the risk of transimission is has a half of the maximum in the exposure model (logistic function) | - |
 | `exposure_model_risk_distance_width` | 0.5 | - | Width of logisitc function in the risk of transimission in the exposure model (logistic function) | - |
+| `exposure_model_dct_ens` | 0 | - | Use the ENS version of digitial contact tracing | - |
+| `exposure_model_dct_ens_risk_threshold` | 2 | - | When using the ENS version of DCT what is the threshold risk score to quarantine | - |

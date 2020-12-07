@@ -22,7 +22,8 @@ typedef struct{
 	float duration_mean;	   // mean of the distribution of the duration of exposure (Pareto distribution)
 	float risk_duration_half;  // distance at which risk of transmission is cut by half (logisitc function)
 	float risk_duration_width; // width of distance over which risk of transmission changes (logisitc function)
-
+	short dct_ens;   			  // perform digital contract tracing using the ENS system
+	float dct_ens_risk_threshold; // threshold at which cumulative risk-score leads to quarantining
 } exposure_parameters;
 
 typedef struct{
@@ -204,7 +205,7 @@ typedef struct{
 	//average amount of interactions healthcare workers have with each other per day
 	double hcw_mean_work_interactions;
 
-	short exposure_model_use;
+	short exposure_model_use;					 // use the exposure model for calculating distance and
 	exposure_parameters *exposure_params;
 } parameters;
 
@@ -254,7 +255,9 @@ int get_model_param_manual_trace_interviews_per_worker_day( model *pmodel );
 int get_model_param_manual_trace_notifications_per_worker_day( model *pmodel );
 double get_model_param_manual_traceable_fraction( model *pmodel, int );
 double get_model_param_fatality_fraction( model *pmodel, int age_group );
+short get_model_param_expsoure_model_dct_ens( model* );
 
+int set_model_param_expsoure_model_dct_ens( model*, short );
 int set_model_param_quarantine_days(model *pmodel, int value);
 int set_model_param_self_quarantine_fraction(model *pmodel, double value);
 int set_model_param_trace_on_symptoms(model *pmodel, int value);

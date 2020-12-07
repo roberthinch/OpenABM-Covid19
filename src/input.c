@@ -535,10 +535,12 @@ void read_param_file( parameters *params)
 	read_short( parameter_file, &(params->exposure_model_use),                   "Failed to read parameter exposure_model_use" );
 	read_float( parameter_file, &(params->exposure_params->distance_mean),       "Failed to read parameter exposure_model_distance_mean" );
     read_float( parameter_file, &(params->exposure_params->distance_sd),         "Failed to read parameter exposure_model_distance_sd" );
- 	read_float( parameter_file, &(params->exposure_params->duration_min),        "Failed to read parameter exposure_duration_min" );
-	read_float( parameter_file, &(params->exposure_params->duration_mean),       "Failed to read parameter exposure_duration_mean" );
-	read_float( parameter_file, &(params->exposure_params->risk_duration_half),  "Failed to read parameter exposure_duration_risk_duration_half" );
- 	read_float( parameter_file, &(params->exposure_params->risk_duration_width), "Failed to read parameter exposure_duration_risk_duration_width" );
+ 	read_float( parameter_file, &(params->exposure_params->duration_min),        "Failed to read parameter exposure_model_duration_min" );
+	read_float( parameter_file, &(params->exposure_params->duration_mean),       "Failed to read parameter exposure_model_duration_mean" );
+	read_float( parameter_file, &(params->exposure_params->risk_duration_half),  "Failed to read parameter exposure_model_duration_risk_duration_half" );
+ 	read_float( parameter_file, &(params->exposure_params->risk_duration_width), "Failed to read parameter exposure_model_duration_risk_duration_width" );
+ 	read_short( parameter_file, &(params->exposure_params->dct_ens),               "Failed to read parameter exposure_model_dct_ens" );
+ 	read_float( parameter_file, &(params->exposure_params->dct_ens_risk_threshold),"Failed to read parameter exposure_model_dct_ens_risk_threshold" );
 
 	fclose(parameter_file);
 }
@@ -796,7 +798,8 @@ void write_individual_file(model *model, parameters *params)
 	fprintf(individual_output_file,"test_status,");
 	fprintf(individual_output_file,"app_user,");
 	fprintf(individual_output_file,"mean_interactions,");
-	fprintf(individual_output_file,"infection_count");
+	fprintf(individual_output_file,"infection_count,");
+	fprintf(individual_output_file,"ens_risk_score");
 	fprintf(individual_output_file,"\n");
 
 	// Loop through all individuals in the simulation
@@ -814,7 +817,7 @@ void write_individual_file(model *model, parameters *params)
 		infection_count = count_infection_events( indiv );
 
 		fprintf(individual_output_file,
-			"%li,%d,%d,%d,%d,%d,%li,%d,%d,%d,%d,%d,%d\n",
+			"%li,%d,%d,%d,%d,%d,%li,%d,%d,%d,%d,%d,%d,%.3f\n",
 			indiv->idx,
 			indiv->status,
 			indiv->age_group,
@@ -827,7 +830,8 @@ void write_individual_file(model *model, parameters *params)
 			indiv->quarantine_test_result,
 			indiv->app_user,
 			indiv->random_interactions,
-			infection_count
+			infection_count,
+			indiv->ens_risk_score
 			);
 	}
 	fclose(individual_output_file);
@@ -994,7 +998,7 @@ void write_interactions( model *model )
 	ring_dec( day, model->params->days_of_interactions );
 	time = model->time - 1;
 
-	fprintf(output_file ,"ID_1,age_group_1,worker_type_1,house_no_1,occupation_network_1,type,network_id,ID_2,age_group_2,worker_type_2,house_no_2,occupation_network_2,traceable,manual_traceable,time\n");
+	fprintf(output_file ,"ID_1,age_group_1,worker_type_1,house_no_1,occupation_network_1,type,network_id,ID_2,age_group_2,worker_type_2,house_no_2,occupation_network_2,traceable,manual_traceable,time,duration,distance\n");
 	for( pdx = 0; pdx < model->params->n_total; pdx++ )
 	{
 
@@ -1005,7 +1009,7 @@ void write_interactions( model *model )
 			inter = indiv->interactions[day];
 			for( idx = 0; idx < indiv->n_interactions[day]; idx++ )
 			{
-				fprintf(output_file ,"%li,%i,%i,%li,%i,%i,%i,%li,%i,%i,%li,%i,%i,%i,%li\n",
+				fprintf(output_file ,"%li,%i,%i,%li,%i,%i,%i,%li,%i,%i,%li,%i,%i,%i,%.3f,%.3f,%li\n",
 					indiv->idx,
 					indiv->age_group,
 					indiv->worker_type,
@@ -1020,6 +1024,8 @@ void write_interactions( model *model )
 					inter->individual->occupation_network,
 					inter->traceable,
 					inter->manual_traceable,
+					inter->duration,
+					inter->distance,
 					time
 				);
 				inter = inter->next;

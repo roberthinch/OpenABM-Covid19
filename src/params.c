@@ -282,10 +282,17 @@ void set_up_default_occupation_network_table( parameters *params )
 ******************************************************************************************/
 int get_model_param_hospital_on(model *model)
 {
-
     return model->params->hospital_on;
 }
 
+/*****************************************************************************************
+*  Name: 		get_model_param_expsoure_model_dct_ens
+*  Description: Gets the value of a parameter
+******************************************************************************************/
+short get_model_param_expsoure_model_dct_ens( model *model )
+{
+    return model->params->exposure_params->dct_ens;
+}
 
 /*****************************************************************************************
 *  Name: 		get_model_param_fatality_fraction
@@ -298,8 +305,6 @@ double get_model_param_fatality_fraction(model * model, int age_group)
 
 	return model->params->fatality_fraction[age_group];
 }
-
-
 
 /*****************************************************************************************
 *  Name: 		get_model_param_daily_fraction_work_used
@@ -656,6 +661,16 @@ int get_model_param_manual_trace_notifications_per_worker_day( model* model )
 double get_model_param_manual_traceable_fraction( model* model, int type )
 {
 	return model->params->manual_traceable_fraction[type];
+}
+
+/*****************************************************************************************
+*  Name:        set_model_param_expsoure_model_dct_ens
+*  Description: Sets the value of parameter
+******************************************************************************************/
+int set_model_param_expsoure_model_dct_ens(model *model, short value )
+{
+    model->params->exposure_params->dct_ens = value;
+    return TRUE;
 }
 
 /*****************************************************************************************
