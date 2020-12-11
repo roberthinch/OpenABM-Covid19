@@ -1277,6 +1277,7 @@ int one_time_step( model *model )
 
 	build_daily_network( model );
 	transmit_virus( model );
+	intervention_schedule_random_lateral_flow_tests( model );
 
 	transition_events( model, SYMPTOMATIC,       	   &transition_to_symptomatic,      		FALSE );
 	transition_events( model, SYMPTOMATIC_MILD,  	   &transition_to_symptomatic_mild, 		FALSE );
@@ -1304,11 +1305,13 @@ int one_time_step( model *model )
 
 	while( ( n_daily( model, TEST_TAKE, model->time ) > 0 ) ||
 		   ( n_daily( model, TEST_RESULT, model->time ) > 0 ) ||
+		   ( n_daily( model, TEST_TAKE_LATERAL_FLOW, model->time ) > 0 ) ||
 		   ( n_daily( model, MANUAL_CONTACT_TRACING, model->time ) > 0 )
 	)
 	{
 		transition_events( model, TEST_TAKE,              &intervention_test_take,          TRUE );
 		transition_events( model, TEST_RESULT,            &intervention_test_result,        TRUE );
+		transition_events( model, TEST_TAKE_LATERAL_FLOW, &intervention_test_lateral_flow,  TRUE );
 		transition_events( model, MANUAL_CONTACT_TRACING, &intervention_manual_trace,       TRUE );
 	}
 

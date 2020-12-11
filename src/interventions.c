@@ -564,6 +564,60 @@ void intervention_test_take( model *model, individual *indiv )
 }
 
 /*****************************************************************************************
+*  Name:		intervention_test_lateral_flow
+*  Description: An individual takes a lateral-flow test. The results come back in 20 minutes
+*  				so no need put the result in as a separate event. Then sensitivity of the
+*  				test is also different to that of the standard PCR tests.
+*
+*
+*  Returns:		void
+******************************************************************************************/
+void intervention_test_lateral_flow( model *model, individual *indiv )
+{
+	int test_result;
+	int time_infected = time_infected( indiv );
+
+
+	// replace with lateral test flow sensitivity model
+	if( time_infected != UNKNOWN )
+	{
+		time_infected   = model->time - time_infected;
+		int symptomatic = ( time_symptomatic( indiv ) <= model->time ) & ( time_symptomatic( indiv ) >= max( model->time - model->params->test_sensitive_period, 0 ) );
+
+		if( ( symptomatic || time_infected >= model->params->test_insensitive_period ) && time_infected < model->params->test_sensitive_period )
+			test_result = gsl_ran_bernoulli( rng, model->params->test_sensitivity );
+		else
+			test_result = gsl_ran_bernoulli( rng, 1 - model->params->test_specificity );
+	}
+	else
+		test_result = gsl_ran_bernoulli( rng, 1 - model->params->test_specificity );
+
+	if( test_result )
+	{
+		// what to to do with a positive result
+
+
+		// if part of series then terminate it
+		if( indiv->lateral_flow_tests_to_go >= 0 )
+			indiv->lateral_flow_tests_to_go = NO_TEST;
+	}
+	else
+	{
+		// what to to do with a negative result
+
+
+		// if part of series order the next one
+		if( indiv->lateral_flow_tests_to_go == 1 )
+			indiv->lateral_flow_tests_to_go = NO_TEST;
+		else
+		{
+			indiv->lateral_flow_tests_to_go--;
+			add_individual_to_event_list( model, TEST_TAKE_LATERAL_FLOW, indiv, model->time + 1 );
+		}
+	}
+}
+
+/*****************************************************************************************
 *  Name:		intervention_test_result
 *  Description: An individual gets a test result
 *
@@ -1079,6 +1133,16 @@ void intervention_on_traced(
 		}
 	}
 
+	// add new param
+	int param_lateral_flow_test_on_trace = TRUE;
+	int param_lateral_flow_tests_num_on_trace = 7;
+	if( param_lateral_flow_test_on_trace )
+	{
+		set_lateral_flow_tests_to_go( indiv, param_lateral_flow_tests_num_on_trace );
+		add_individual_to_event_list( model, TEST_TAKE_LATERAL_FLOW, indiv, model->time  );
+	}
+
+
 	if( recursion_level != NOT_RECURSIVE && recursion_level < params->tracing_network_depth )
 		intervention_notify_contacts( model, indiv, recursion_level + 1, index_token, DIGITAL_TRACE );
 }
@@ -1150,7 +1214,6 @@ void intervention_smart_release( model *model )
 				QUARANTINE_REASONS are listed in descending order of precedence.
 *  Returns:		void
 ******************************************************************************************/
-
 int resolve_quarantine_reasons(int *quarantine_reasons)
 {
 	int n_reasons = 0, reason, i;
@@ -1169,4 +1232,30 @@ int resolve_quarantine_reasons(int *quarantine_reasons)
 	
 	return UNKNOWN;
 }
+
+/*****************************************************************************************
+*  Name:		intervention_schedule_random_lateral_flow_tests
+*  Description: Schedule random mass tests
+*  Returns:		void
+******************************************************************************************/
+void intervention_schedule_random_lateral_flow_tests( model *model )
+{
+	float param_proportion_random_tests = 0.0;
+	long total_random_tests = floor( param_proportion_random_tests * model->params->n_total );
+	long person;
+	individual *indiv;
+
+	while( total_random_tests > 0 )
+	{
+		person = gsl_rng_uniform_int( rng, model->params->n_total );
+		indiv  = &(model->population[ person ]);
+
+		if( indiv->infection_events->is_case == FALSE )
+		{
+			add_individual_to_event_list( model, TEST_TAKE_LATERAL_FLOW, indiv, model->time  );
+			total_random_tests--;
+		}
+	}
+}
+
 

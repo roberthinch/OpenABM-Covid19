@@ -44,6 +44,7 @@ struct individual{
 	event *quarantine_event;
 	event *quarantine_release_event;
 	int quarantine_test_result;
+	int lateral_flow_tests_to_go;
 	
 	trace_token *trace_tokens;
 	trace_token *index_trace_token;
@@ -117,6 +118,7 @@ void set_hospitalised_recovering( individual*, parameters*, int );
 void set_critical( individual*, parameters*, int );
 void set_dead( individual*, parameters*, int );
 void set_case( individual*, int );
+void set_lateral_flow_tests_to_go( individual*, int );
 void set_waiting( individual*, parameters*, int );
 void set_general_admission( individual*, parameters*, int );
 void set_icu_admission( individual*, parameters*, int );

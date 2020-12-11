@@ -55,6 +55,7 @@ void initialize_individual(
 	indiv->current_disease_event    = NULL;
 	indiv->next_disease_event       = NULL;
 	indiv->quarantine_test_result   = NO_TEST;
+	indiv->lateral_flow_tests_to_go = NO_TEST;
 
 	indiv->trace_tokens         = NULL;
 	indiv->index_trace_token    = NULL;
@@ -294,6 +295,16 @@ void set_case( individual *indiv, int time )
 {
 	indiv->infection_events->is_case   = TRUE;
 	indiv->infection_events->times[CASE] = time;
+}
+
+/*****************************************************************************************
+*  Name:		set_lateral_flow_tests_to_go
+*  Description: sets a person to be a case
+*  Returns:		void
+******************************************************************************************/
+void set_lateral_flow_tests_to_go( individual *indiv, int n )
+{
+	indiv->lateral_flow_tests_to_go = n;
 }
 
 /*****************************************************************************************
