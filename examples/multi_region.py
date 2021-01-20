@@ -5,12 +5,23 @@ import example_utils as utils
 import pandas as pd
 
 class WorkerJob(object):
-    def __init__(self,e_go,e_global_wait,e_job,idx,data):
+    def __init__(
+            self,
+            e_go,
+            e_global_wait,
+            e_job,
+            idx,
+            data,
+            fields,
+            n_regions
+        ):
         self.e_go   = e_go
         self.e_global_wait = e_global_wait
         self.e_job  = e_job
         self.idx    = idx
         self.data   = data
+        self.fields  = fields
+        self.n_regions = n_regions
         
         self.e_go.wait()
         self.initialize_model()
@@ -25,24 +36,31 @@ class WorkerJob(object):
         params.set_param( "quarantine_days",1)
         sim = utils.get_simulation( params )
         self.model = sim.env.model
-   
-    def set_data(self,value):
-        self.data[self.idx]=value
-        
+           
     def one_step_work(self):
         self.model.one_time_step()
         res = self.model.one_time_step_results()
-        self.set_data(res["total_infected"])
+        
+        for fdx in range( len( self.fields ) ) :
+            self.data[self.idx + (fdx * self.n_regions) ]= res[ self.fields[fdx]]        
         
     def one_step_wait(self):
         self.e_go.wait()
         self.one_step_work()
         self.e_job.set()
         self.e_global_wait.wait()
-              
             
-def create_WorkerJob(e_go, e_global_wait,e_job, idx,data,max_steps):
-    worker = WorkerJob(e_go, e_global_wait,e_job, idx,data)
+def create_WorkerJob(
+        e_go, 
+        e_global_wait,
+        e_job, 
+        idx,
+        shared_data,
+        shared_fields,
+        n_regions,
+        max_steps
+    ):
+    worker = WorkerJob(e_go, e_global_wait,e_job, idx,shared_data,shared_fields,n_regions)
     for i in range( max_steps ) :
         worker.one_step_wait()
         
@@ -58,7 +76,12 @@ class MultiRegionModel(object):
         self.processes   = []
         self.pause_region = [False] * n_regions
      
-        self.shared_array = multiprocessing.Array("i", n_regions)
+        self.fields = [
+            "total_infected",
+            "total_death",
+            "n_critical"
+        ]
+        self.shared_array = multiprocessing.Array("i", n_regions * len( self.fields) )
         
         for j in range( n_regions) :
             e_job = multiprocessing.Event()
@@ -67,9 +90,11 @@ class MultiRegionModel(object):
            
             self.e_jobs_go.append(e_go)
             self.e_jobs_wait.append(e_job)
-            process = multiprocessing.Process(name='block', 
-                                 target= create_WorkerJob,
-                                 args=(e_go,self.e_global_wait,e_job,j,self.shared_array,max_steps))
+            process = multiprocessing.Process(
+                name   = 'block', 
+                target = create_WorkerJob,
+                args   = (e_go,self.e_global_wait,e_job,j,self.shared_array,self.fields,n_regions,max_steps)
+            )
             process.start()
             self.processes.append(process)
 
@@ -104,25 +129,52 @@ class MultiRegionModel(object):
     
         self.pause_region[region] = pause
       
+    def set_pause(self,pause):
+        
+        for region in range( self.n_regions ) : 
+           self.pause_region[region] = pause
+           
+    def result_array(self,field):
+        
+        if not field in self.fields :
+            raise( "field not known" )
+        
+        fdx = self.fields.index(field)
+        fdx = fdx * self.n_regions
+        
+        res = [];
+        for idx in range( self.n_regions ) :
+            res.append(self.shared_array[fdx+idx])
+            
+        return res
+              
+      
 if __name__ == '__main__':
     
     max_steps = 20
     n_regions = 10
+    sync_inf  = 100
     
     model = MultiRegionModel( n_regions )
     
     for i in range( max_steps ) :
         
-        if i == 10 :
-            model.set_pause_in_region(0,True)
-        if i == 15 :
-            model.set_pause_in_region(0,False)
-
         model.one_step_wait()
-        res = "time: " + str( i  ) + ": "
+        resStr = "time: " + str( i  ) + ": "
+        res    = model.result_array("total_infected")
         for j in range( n_regions ) :
-             res = res + str( model.shared_array[ j ] ) + "|"
-        print( res )
+            resStr = resStr + str( res[j] ) + "|"
+        print( resStr )
+
         
+        n_waiting = 0     
+        for j in range( n_regions ) :
+            if model.shared_array[ j ] >= sync_inf :
+                model.set_pause_in_region(j,True)
+                n_waiting = n_waiting + 1;
+                
+        if n_waiting == n_regions :
+            model.set_pause(False)
+                    
     model.terminate_all_jobs()
 
