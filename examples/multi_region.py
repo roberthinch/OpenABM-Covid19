@@ -13,7 +13,8 @@ class WorkerJob(object):
             idx,
             data,
             fields,
-            n_regions
+            n_regions,
+            init_params
         ):
         self.e_go   = e_go
         self.e_global_wait = e_global_wait
@@ -22,6 +23,7 @@ class WorkerJob(object):
         self.data   = data
         self.fields  = fields
         self.n_regions = n_regions
+        self.init_params = init_params
         
         self.e_go.wait()
         self.initialize_model()
@@ -29,11 +31,12 @@ class WorkerJob(object):
         self.e_global_wait.wait()
           
     def initialize_model(self):
+        
         params = utils.get_baseline_parameters()
-        params.set_param( "n_total", 10000 )
-        params.set_param( "rng_seed",self.idx )
-        params.set_param( "days_of_interactions",1)
-        params.set_param( "quarantine_days",1)
+        
+        for param, val in self.init_params.items():
+            params.set_param( param, val )
+
         sim = utils.get_simulation( params )
         self.model = sim.env.model
            
@@ -58,16 +61,19 @@ def create_WorkerJob(
         shared_data,
         shared_fields,
         n_regions,
-        max_steps
+        max_steps,
+        init_params
     ):
-    worker = WorkerJob(e_go, e_global_wait,e_job, idx,shared_data,shared_fields,n_regions)
+    worker = WorkerJob(e_go, e_global_wait,e_job, idx,shared_data,shared_fields,n_regions,init_params)
     for i in range( max_steps ) :
         worker.one_step_wait()
         
         
 class MultiRegionModel(object):
-    def __init__(self,n_regions,max_steps = 1000):
+    def __init__(self,params,index_col="idx", max_steps = 1000,turn_off_contract_tracing = True ):
 
+        n_regions = len( params.index ) 
+        
         self.n_regions   = n_regions
         self.max_steps   = max_steps
         self.e_global_wait = multiprocessing.Event()
@@ -81,19 +87,29 @@ class MultiRegionModel(object):
             "total_death",
             "n_critical"
         ]
-        self.shared_array = multiprocessing.Array("i", n_regions * len( self.fields) )
+        self.shared_array = multiprocessing.Array("i", n_regions * len( self.fields) )   
+        
+        
+        params.drop(columns=[ index_col ],inplace=True)
+        params = params.to_dict('records')
         
         for j in range( n_regions) :
             e_job = multiprocessing.Event()
             e_go = multiprocessing.Event()
             self.shared_array[j] = 0
+
+            init_params = params[j] 
+            init_params["rng_seed"] = j
+            if turn_off_contract_tracing :
+                init_params[ "days_of_interactions" ] = 1
+                init_params[ "quarantine_days" ]      = 1  
            
             self.e_jobs_go.append(e_go)
             self.e_jobs_wait.append(e_job)
             process = multiprocessing.Process(
                 name   = 'block', 
                 target = create_WorkerJob,
-                args   = (e_go,self.e_global_wait,e_job,j,self.shared_array,self.fields,n_regions,max_steps)
+                args   = (e_go,self.e_global_wait,e_job,j,self.shared_array,self.fields,n_regions,max_steps,init_params)
             )
             process.start()
             self.processes.append(process)
@@ -153,9 +169,15 @@ if __name__ == '__main__':
     
     max_steps = 20
     n_regions = 10
-    sync_inf  = 100
+    sync_inf  = 50
     
-    model = MultiRegionModel( n_regions )
+    file_param =  "~/Downloads/ox_bdi_data/baseline_parameters_calibrated_by_stp.csv"
+    params     = pd.read_csv( file_param, sep = ",", comment = "#", skipinitialspace = True )    
+    
+    params["n_total"] = params["n_total"] / 50
+    params.round({"n_total" : 0 })
+        
+    model = MultiRegionModel( params, index_col = "stp" )
     
     for i in range( max_steps ) :
         
@@ -165,7 +187,6 @@ if __name__ == '__main__':
         for j in range( n_regions ) :
             resStr = resStr + str( res[j] ) + "|"
         print( resStr )
-
         
         n_waiting = 0     
         for j in range( n_regions ) :
