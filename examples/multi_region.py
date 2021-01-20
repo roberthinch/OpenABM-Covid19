@@ -83,12 +83,14 @@ class MultiRegionModel(object):
         self.pause_region = [False] * n_regions
      
         self.fields = [
+            "time",
             "total_infected",
             "total_death",
             "n_critical"
         ]
         self.shared_array = multiprocessing.Array("i", n_regions * len( self.fields) )   
-        
+        self.index_values = params[ index_col ]
+        self.index_col    = index_col
         
         params.drop(columns=[ index_col ],inplace=True)
         params = params.to_dict('records')
@@ -113,6 +115,9 @@ class MultiRegionModel(object):
             )
             process.start()
             self.processes.append(process)
+            
+        self.time = 0;
+        self.one_step_wait()
 
     def terminate_all_jobs(self):
         for j in range( self.n_regions ) :
@@ -137,6 +142,7 @@ class MultiRegionModel(object):
                
         # get the the jovs ready for the next setp
         self.e_global_wait.set()
+        self.time = self.time + 1
         
     def set_pause_in_region(self,region,pause):
         
@@ -163,20 +169,31 @@ class MultiRegionModel(object):
             res.append(self.shared_array[fdx+idx])
             
         return res
-              
+    
+    def result_dt(self):
+        
+        dt = pd.DataFrame( data = { self.index_col : self.index_values })
+        
+        fields = self.fields 
+        for field in fields :
+            dt[ field ] = model.result_array( field )
+        
+        dt["time_global"] = self.time
+            
+        return dt            
       
 if __name__ == '__main__':
     
-    max_steps = 20
-    n_regions = 10
+    max_steps = 30
     sync_inf  = 50
     
     file_param =  "~/Downloads/ox_bdi_data/baseline_parameters_calibrated_by_stp.csv"
     params     = pd.read_csv( file_param, sep = ",", comment = "#", skipinitialspace = True )    
     
-    params["n_total"] = params["n_total"] / 50
+    params["n_total"] = params["n_total"] / 100
     params.round({"n_total" : 0 })
-        
+    n_regions = len( params.index )
+
     model = MultiRegionModel( params, index_col = "stp" )
     
     for i in range( max_steps ) :
@@ -187,10 +204,11 @@ if __name__ == '__main__':
         for j in range( n_regions ) :
             resStr = resStr + str( res[j] ) + "|"
         print( resStr )
+        print( model.result_dt())
         
         n_waiting = 0     
         for j in range( n_regions ) :
-            if model.shared_array[ j ] >= sync_inf :
+            if res[ j ] >= sync_inf :
                 model.set_pause_in_region(j,True)
                 n_waiting = n_waiting + 1;
                 
