@@ -33,52 +33,52 @@ class WorkerJob(object):
             update_param,
             update_value
         ):
-        self.e_go   = e_go
-        self.e_global_wait = e_global_wait
-        self.e_job  = e_job
-        self.step_type = step_type
-        self.idx    = idx
-        self.data   = data
-        self.n_regions = n_regions
-        self.init_params = init_params
-        self.update_param = update_param
-        self.update_value = update_value
+        self._e_go   = e_go
+        self._e_global_wait = e_global_wait
+        self._e_job  = e_job
+        self._step_type = step_type
+        self._idx    = idx
+        self._data   = data
+        self._n_regions = n_regions
+        self._init_params = init_params
+        self._update_param = update_param
+        self._update_value = update_value
 
-        self.e_go.wait()
-        self.initialize_model()
-        self.e_job.set()
-        self.e_global_wait.wait()
+        self._e_go.wait()
+        self._initialize_model()
+        self._e_job.set()
+        self._e_global_wait.wait()
           
-    def initialize_model(self):
+    def _initialize_model(self):
         
         params = utils.get_baseline_parameters()
         
-        for param, val in self.init_params.items():
+        for param, val in self._init_params.items():
             params.set_param( param, val )
 
         sim = utils.get_simulation( params )
-        self.model = sim.env.model
+        self._model = sim.env.model
            
-    def one_step_work(self):
-        self.model.one_time_step()
-        res = self.model.one_time_step_results()
+    def _one_step_work(self):
+        self._model.one_time_step()
+        res = self._model.one_time_step_results()
         
         for fdx in range( len( RESULT_FIELDS ) ) :
-            self.data[self.idx + (fdx * self.n_regions) ]= res[ RESULT_FIELDS[fdx]]        
+            self._data[self._idx + (fdx * self._n_regions) ]= res[ RESULT_FIELDS[fdx]]        
       
-    def update_running_params(self):
+    def _update_running_params(self):
         
-        param = PYTHON_SAFE_UPDATE_PARAMS[self.update_param.value ]
-        self.model.update_running_params(param,self.update_value.value)
+        param = PYTHON_SAFE_UPDATE_PARAMS[self._update_param.value ]
+        self._model.update_running_params(param,self._update_value.value)
                 
     def run(self):
-        self.e_go.wait()
-        if self.step_type.value == STEP_TYPE_TIME :
-            self.one_step_work()
-        elif self.step_type.value == STEP_TYPE_PARAM_UPDATE :
-            self.update_running_params()      
-        self.e_job.set()
-        self.e_global_wait.wait()
+        self._e_go.wait()
+        if self._step_type.value == STEP_TYPE_TIME :
+            self._one_step_work()
+        elif self._step_type.value == STEP_TYPE_PARAM_UPDATE :
+            self._update_running_params()      
+        self._e_job.set()
+        self._e_global_wait.wait()
         
             
 def create_WorkerJob(
@@ -104,22 +104,22 @@ class MultiRegionModel(object):
 
         n_regions = len( params.index ) 
         
-        self.n_regions   = n_regions
-        self.max_steps   = max_steps
-        self.e_global_wait = multiprocessing.Event()
-        self.e_jobs_go   = []
-        self.e_jobs_wait = []
-        self.processes   = []
-        self.pause_region = [False] * n_regions
-        self.time_offsets = [0] * n_regions
+        self._n_regions   = n_regions
+        self._max_steps   = max_steps
+        self._e_global_wait = multiprocessing.Event()
+        self._e_jobs_go   = []
+        self._e_jobs_wait = []
+        self._processes   = []
+        self._pause_region = [False] * n_regions
+        self._time_offsets = [0] * n_regions
      
-        self.results      = multiprocessing.Array("i", n_regions * len( RESULT_FIELDS ) )   
-        self.index_values = params[ index_col ]
-        self.index_col    = index_col
-        self.step_type    = multiprocessing.Value('i',0)
-        self.update_param = multiprocessing.Value('i',0)
-        self.update_value = multiprocessing.Value('d', 0)
-        self.result_ts_init()
+        self._results      = multiprocessing.Array("i", n_regions * len( RESULT_FIELDS ) )   
+        self._index_values = params[ index_col ]
+        self._index_col    = index_col
+        self._step_type    = multiprocessing.Value('i',0)
+        self._update_param = multiprocessing.Value('i',0)
+        self._update_value = multiprocessing.Value('d', 0)
+        self._result_ts_init()
         
         params.drop(columns=[ index_col ],inplace=True)
         params = params.to_dict('records')
@@ -127,7 +127,7 @@ class MultiRegionModel(object):
         for j in range( n_regions) :
             e_job = multiprocessing.Event()
             e_go = multiprocessing.Event()
-            self.results[j] = 0
+            self._results[j] = 0
 
             init_params = params[j] 
             init_params["rng_seed"] = j
@@ -135,78 +135,79 @@ class MultiRegionModel(object):
                 init_params[ "days_of_interactions" ] = 1
                 init_params[ "quarantine_days" ]      = 1  
            
-            self.e_jobs_go.append(e_go)
-            self.e_jobs_wait.append(e_job)
+            self._e_jobs_go.append(e_go)
+            self._e_jobs_wait.append(e_job)
             process = multiprocessing.Process(
                 name   = 'block', 
                 target = create_WorkerJob,
-                args   = (e_go,self.e_global_wait,e_job,self.step_type,j,self.results,n_regions,init_params,self.update_param,self.update_value)
+                args   = (e_go,self._e_global_wait,e_job,self._step_type,j,self._results,n_regions,init_params,self._update_param,self._update_value)
             )
             process.start()
-            self.processes.append(process)
+            self._processes.append(process)
             
-        self.time = 0;
+        self._time = 0;
         self.one_step_wait()
 
-    def terminate_all_jobs(self):
-        for j in range( self.n_regions ) :
-            self.processes[j].terminate()
+    def __del__(self):
+        for j in range( self._n_regions ) :
+            self._processes[j].terminate()
             
     def one_step_wait(self):
-        self.step_type.value = STEP_TYPE_TIME
+        self._step_type.value = STEP_TYPE_TIME
         
         # sets the first set of jobs off and blocks the end of the process
-        self.e_global_wait.clear()
-        for j in range( self.n_regions ) :
-            if not self.pause_region[j] :
-                self.e_jobs_go[j].set()
+        self._e_global_wait.clear()
+        for j in range( self._n_regions ) :
+            if not self._pause_region[j] :
+                self._e_jobs_go[j].set()
         
         # wait for the job to be done and rest counters
-        for j in range( self.n_regions ) :
-            if not self.pause_region[j] :
-                self.e_jobs_wait[j].wait()
+        for j in range( self._n_regions ) :
+            if not self._pause_region[j] :
+                self._e_jobs_wait[j].wait()
        
-        for j in range( self.n_regions ) :
-            self.e_jobs_wait[j].clear()
-            self.e_jobs_go[j].clear()
+        for j in range( self._n_regions ) :
+            self._e_jobs_wait[j].clear()
+            self._e_jobs_go[j].clear()
                
         # get the the jovs ready for the next setp
-        self.e_global_wait.set()
-        self.time = self.time + 1
+        self._e_global_wait.set()
+        self._time = self._time + 1
         
-        self.results_ts_dt = pd.concat( [ self.results_ts_dt, self.result_dt() ] )
+        self._results_ts_dt = pd.concat( [ self._results_ts_dt, self.result_dt() ] )
         
     def update_running_params(self,param,value,index=None):
 
         if index == None :
-            for j in range( n_regions) :
-                self.update_running_paramss(param, value, j)
+            for j in range( self._n_regions) :
+                self.update_running_params(param, value, j)
+            return
         
         # set the param to update and value in shared memory        
         param_idx = PYTHON_SAFE_UPDATE_PARAMS.index(param)
-        self.step_type.value    = STEP_TYPE_PARAM_UPDATE  
-        self.update_param.value = param_idx
-        self.update_value.value = value
-        
+        self._step_type.value    = STEP_TYPE_PARAM_UPDATE  
+        self._update_param.value = param_idx
+        self._update_value.value = value
+                
         # fire off the update in the relevant job
-        self.e_global_wait.clear()
-        self.e_jobs_go[index].set()
-        self.e_jobs_wait[index].wait()
-        self.e_jobs_go[index].clear()
-        self.e_jobs_wait[index].clear()
-        self.e_global_wait.set()
+        self._e_global_wait.clear()
+        self._e_jobs_go[index].set()
+        self._e_jobs_wait[index].wait()
+        self._e_jobs_go[index].clear()
+        self._e_jobs_wait[index].clear()
+        self._e_global_wait.set()
         
-    def set_pause_in_region(self,region,pause):
+    def _set_pause_in_region(self,region,pause):
         
-        if region < 0 or region >= self.n_regions :
+        if region < 0 or region >= self._n_regions :
             raise( "region index is invalid" )
     
-        self.pause_region[region] = pause
+        self._pause_region[region] = pause
       
-    def set_pause(self,pause):
+    def _set_pause(self,pause):
         
-        for region in range( self.n_regions ) : 
-           self.pause_region[region] = pause
+        for region in range( self._n_regions ) : 
+           self._pause_region[region] = pause
            
     def result_array(self,field):
         
@@ -214,22 +215,22 @@ class MultiRegionModel(object):
             raise( "field not known" )
         
         fdx = RESULT_FIELDS.index(field)
-        fdx = fdx * self.n_regions
+        fdx = fdx * self._n_regions
         
         res = [];
-        for idx in range( self.n_regions ) :
-            res.append(self.results[fdx+idx])
+        for idx in range( self._n_regions ) :
+            res.append(self._results[fdx+idx])
            
         # adjust the time of each model of offsets due to synchronisation
         if field == "time" :   
-            for idx in range( self.n_regions ) :
-                res[idx] = res[idx] + self.time_offsets[idx]
+            for idx in range( self._n_regions ) :
+                res[idx] = res[idx] + self._time_offsets[idx]
                 
         return res
     
     def result_dt(self):
         
-        dt = pd.DataFrame( data = { self.index_col : self.index_values })
+        dt = pd.DataFrame( data = { self._index_col : self._index_values })
         
         for field in RESULT_FIELDS :
             dt[ field ] = self.result_array( field )
@@ -237,21 +238,21 @@ class MultiRegionModel(object):
         return dt      
     
     def result_ts(self):   
-        return self.results_ts_dt
+        return self._results_ts_dt
     
-    def result_ts_init(self):   
-        self.results_ts_dt = pd.DataFrame(columns = RESULT_FIELDS )
+    def _result_ts_init(self):   
+        self._results_ts_dt = pd.DataFrame(columns = RESULT_FIELDS )
          
     def step_to_synch_point(self,synch_param,synch_value,verbose = True, maxSteps = 100):
         
         # reset the results_ts and the offsets
-        self.result_ts_init()
-        self.time_offsets = [0] * self.n_regions
+        self._result_ts_init()
+        self._time_offsets = [0] * self._n_regions
         initial_time      = self.result_array( "time" )
-        self.set_pause( False )
+        self._set_pause( False )
         
         if not isinstance(synch_value, list ) :
-            synch_value = [ synch_value ] * self.n_regions
+            synch_value = [ synch_value ] * self._n_regions
         
         for step in range( maxSteps ) :
         
@@ -260,22 +261,23 @@ class MultiRegionModel(object):
             n_waiting = 0     
             for j in range( n_regions ) :
                 if res[ j ] >= synch_value[ j ] :
-                    self.set_pause_in_region( j, True )
+                    self._set_pause_in_region( j, True )
                     n_waiting = n_waiting + 1;
             
             if verbose :
-                print( "step " + str( step ) + "; " + str( n_waiting ) + "/" + str( self.n_regions ) + " reached synch point" )
+                print( "step " + str( step ) + "; " + str( n_waiting ) + "/" + str( self._n_regions ) + " reached synch point" )
              
             # if all at synch point, wait  
-            if n_waiting == self.n_regions :
-                model.set_pause( False )
+            if n_waiting == self._n_regions :
+                model._set_pause( False )
                 break;
             
              
             model.one_step_wait()
         
         # failure to synch
-        if n_waiting != self.n_regions :
+        if n_waiting != self._n_regions :
+            model._set_pause( False )
             if verbose :
                 print( "Not all regions reached the target after maxSteps" )
             return False    
@@ -287,17 +289,17 @@ class MultiRegionModel(object):
             dif_time[j] = dif_time[j] - initial_time[j]
         t_align    = min( dif_time )
         for j in range( n_regions ) :
-            self.time_offsets[j] = t_align - dif_time[j] - initial_time[j]
+            self._time_offsets[j] = - dif_time[j] - initial_time[j]
         
         # replace the stored ts data with the aligned time
         dt_result  = self.result_ts()
-        dt_offsets = pd.DataFrame( data = { "time_offset": self.time_offsets,  self.index_col : self.index_values } ) 
-        dt_result  = pd.merge( dt_result, dt_offsets, on = self.index_col )
+        dt_offsets = pd.DataFrame( data = { "time_offset": self._time_offsets,  self._index_col : self._index_values } ) 
+        dt_result  = pd.merge( dt_result, dt_offsets, on = self._index_col )
         dt_result[ "time" ] = dt_result[ "time" ] + dt_result[ "time_offset" ]
-        dt_result = dt_result[ dt_result["time"] > 0 ]
+        dt_result = dt_result[ dt_result["time"] > -t_align ]
         dt_result.drop( columns = [ "time_offset" ] )
-        dt_result.drop_duplicates(inplace=True)
-        self.results_ts_dt = dt_result
+        dt_result.drop_duplicates( inplace=True )
+        self._results_ts_dt = dt_result
 
         return True
       
@@ -314,22 +316,20 @@ if __name__ == '__main__':
     n_regions = len( params.index )
 
     model = MultiRegionModel( params, index_col = "stp" )
-    model.one_step_wait()
     
     model.step_to_synch_point("total_infected", 50 )
-    model.update_running_params( "lockdown_on", 1, 0)
+    model.update_running_params( "lockdown_on", 1 )
     
     for i in range( max_steps ) :
         
         model.one_step_wait()
         resStr = "time: " + str( i  ) + ": "
-        res    = model.result_array("time")
+        res    = model.result_array("total_infected")
         for j in range( n_regions ) :
             resStr = resStr + str( res[j] ) + "|"
         print( resStr )
-    
-                    
-    model.terminate_all_jobs()
-    
+        
     print( model.result_ts().groupby("time").size())
+    
+    del model
 
