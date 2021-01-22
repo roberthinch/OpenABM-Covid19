@@ -120,6 +120,7 @@ class MultiRegionModel(object):
         self.step_type    = multiprocessing.Value('i',0)
         self.update_param = multiprocessing.Value('i',0)
         self.update_value = multiprocessing.Value('d', 0)
+        self.results_ts_dt = pd.DataFrame(columns = [ "time_global" ] + self.fields)
         
         params.drop(columns=[ index_col ],inplace=True)
         params = params.to_dict('records')
@@ -174,6 +175,8 @@ class MultiRegionModel(object):
         self.e_global_wait.set()
         self.time = self.time + 1
         
+        self.results_ts_dt = pd.concat( [ self.results_ts_dt, self.result_dt() ] )
+        
     def update_running_params(self,param,value,index=None):
 
         if index == None :
@@ -226,11 +229,16 @@ class MultiRegionModel(object):
         
         fields = self.fields 
         for field in fields :
-            dt[ field ] = model.result_array( field )
+            dt[ field ] = self.result_array( field )
         
         dt["time_global"] = self.time
             
-        return dt            
+        return dt      
+    
+    def result_ts(self):   
+        return self.results_ts_dt
+        
+      
       
 if __name__ == '__main__':
         
@@ -269,4 +277,6 @@ if __name__ == '__main__':
             model.set_pause(False)
                     
     model.terminate_all_jobs()
+    
+    print( model.result_ts())
 
