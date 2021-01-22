@@ -219,7 +219,12 @@ class MultiRegionModel(object):
         res = [];
         for idx in range( self.n_regions ) :
             res.append(self.results[fdx+idx])
-            
+           
+        # adjust the time of each model of offsets due to synchronisation
+        if field == "time" :   
+            for idx in range( self.n_regions ) :
+                res[idx] = res[idx] + self.time_offsets[idx]
+                
         return res
     
     def result_dt(self):
@@ -228,23 +233,21 @@ class MultiRegionModel(object):
         
         for field in RESULT_FIELDS :
             dt[ field ] = self.result_array( field )
-        
-        dt["time_global"] = self.time
-            
+                    
         return dt      
     
     def result_ts(self):   
         return self.results_ts_dt
     
     def result_ts_init(self):   
-        self.results_ts_dt = pd.DataFrame(columns = [ "time_global" ] + RESULT_FIELDS )
+        self.results_ts_dt = pd.DataFrame(columns = RESULT_FIELDS )
          
     def step_to_synch_point(self,synch_param,synch_value,verbose = True, maxSteps = 100):
         
-        # reset the results_ts 
+        # reset the results_ts and the offsets
         self.result_ts_init()
-        initial_offsets = self.time_offsets
-        initial_time    = self.result_array( "time" )
+        self.time_offsets = [0] * self.n_regions
+        initial_time      = self.result_array( "time" )
         self.set_pause( False )
         
         if not isinstance(synch_value, list ) :
@@ -259,26 +262,44 @@ class MultiRegionModel(object):
                 if res[ j ] >= synch_value[ j ] :
                     self.set_pause_in_region( j, True )
                     n_waiting = n_waiting + 1;
-              
+            
+            if verbose :
+                print( "step " + str( step ) + "; " + str( n_waiting ) + "/" + str( self.n_regions ) + " reached synch point" )
+             
             # if all at synch point, wait  
             if n_waiting == self.n_regions :
                 model.set_pause( False )
                 break;
             
-            if verbose :
-                print( "step " + str( step ) + "; " + str( n_waiting ) + "/" + str( self.n_regions ) + " reached synch point" )
-            
+             
             model.one_step_wait()
         
         # failure to synch
-        if n_waiting == self.n_regions :
+        if n_waiting != self.n_regions :
             if verbose :
                 print( "Not all regions reached the target after maxSteps" )
-            return False
+            return False    
+    
+        # if synched calculate the time offset between regions
+        final_time = self.result_array( "time" )
+        dif_time   = final_time
+        for j in range( n_regions ) :
+            dif_time[j] = dif_time[j] - initial_time[j]
+        t_align    = min( dif_time )
+        for j in range( n_regions ) :
+            self.time_offsets[j] = t_align - dif_time[j] - initial_time[j]
         
-        return True
+        # replace the stored ts data with the aligned time
+        dt_result  = self.result_ts()
+        dt_offsets = pd.DataFrame( data = { "time_offset": self.time_offsets,  self.index_col : self.index_values } ) 
+        dt_result  = pd.merge( dt_result, dt_offsets, on = self.index_col )
+        dt_result[ "time" ] = dt_result[ "time" ] + dt_result[ "time_offset" ]
+        dt_result = dt_result[ dt_result["time"] > 0 ]
+        dt_result.drop( columns = [ "time_offset" ] )
+        dt_result.drop_duplicates(inplace=True)
+        self.results_ts_dt = dt_result
 
-        
+        return True
       
       
 if __name__ == '__main__':
@@ -302,7 +323,7 @@ if __name__ == '__main__':
         
         model.one_step_wait()
         resStr = "time: " + str( i  ) + ": "
-        res    = model.result_array("total_infected")
+        res    = model.result_array("time")
         for j in range( n_regions ) :
             resStr = resStr + str( res[j] ) + "|"
         print( resStr )
@@ -310,5 +331,5 @@ if __name__ == '__main__':
                     
     model.terminate_all_jobs()
     
-    print( model.result_ts())
+    print( model.result_ts().groupby("time").size())
 
