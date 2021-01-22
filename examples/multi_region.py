@@ -12,6 +12,13 @@ from model import PYTHON_SAFE_UPDATE_PARAMS
 STEP_TYPE_TIME = 0
 STEP_TYPE_PARAM_UPDATE = 1
 
+RESULT_FIELDS = [
+    "time",
+    "total_infected",
+    "total_death",
+    "n_critical"  
+]
+
 class WorkerJob(object):
     def __init__(
             self,
@@ -21,7 +28,6 @@ class WorkerJob(object):
             step_type,
             idx,
             data,
-            fields,
             n_regions,
             init_params,
             update_param,
@@ -33,7 +39,6 @@ class WorkerJob(object):
         self.step_type = step_type
         self.idx    = idx
         self.data   = data
-        self.fields  = fields
         self.n_regions = n_regions
         self.init_params = init_params
         self.update_param = update_param
@@ -58,8 +63,8 @@ class WorkerJob(object):
         self.model.one_time_step()
         res = self.model.one_time_step_results()
         
-        for fdx in range( len( self.fields ) ) :
-            self.data[self.idx + (fdx * self.n_regions) ]= res[ self.fields[fdx]]        
+        for fdx in range( len( RESULT_FIELDS ) ) :
+            self.data[self.idx + (fdx * self.n_regions) ]= res[ RESULT_FIELDS[fdx]]        
       
     def update_running_params(self):
         
@@ -83,13 +88,12 @@ def create_WorkerJob(
         step_type,
         idx,
         shared_data,
-        shared_fields,
         n_regions,
         init_params,
         update_param,
         update_value
     ):
-    worker = WorkerJob(e_go, e_global_wait,e_job,step_type,idx,shared_data,shared_fields,n_regions,init_params,update_param,update_value)
+    worker = WorkerJob(e_go, e_global_wait,e_job,step_type,idx,shared_data,n_regions,init_params,update_param,update_value)
     
     while True :
         worker.run()
@@ -107,20 +111,15 @@ class MultiRegionModel(object):
         self.e_jobs_wait = []
         self.processes   = []
         self.pause_region = [False] * n_regions
+        self.time_offsets = [0] * n_regions
      
-        self.fields = [
-            "time",
-            "total_infected",
-            "total_death",
-            "n_critical"
-        ]
-        self.results      = multiprocessing.Array("i", n_regions * len( self.fields) )   
+        self.results      = multiprocessing.Array("i", n_regions * len( RESULT_FIELDS ) )   
         self.index_values = params[ index_col ]
         self.index_col    = index_col
         self.step_type    = multiprocessing.Value('i',0)
         self.update_param = multiprocessing.Value('i',0)
         self.update_value = multiprocessing.Value('d', 0)
-        self.results_ts_dt = pd.DataFrame(columns = [ "time_global" ] + self.fields)
+        self.result_ts_init()
         
         params.drop(columns=[ index_col ],inplace=True)
         params = params.to_dict('records')
@@ -141,7 +140,7 @@ class MultiRegionModel(object):
             process = multiprocessing.Process(
                 name   = 'block', 
                 target = create_WorkerJob,
-                args   = (e_go,self.e_global_wait,e_job,self.step_type,j,self.results,self.fields,n_regions,init_params,self.update_param,self.update_value)
+                args   = (e_go,self.e_global_wait,e_job,self.step_type,j,self.results,n_regions,init_params,self.update_param,self.update_value)
             )
             process.start()
             self.processes.append(process)
@@ -211,10 +210,10 @@ class MultiRegionModel(object):
            
     def result_array(self,field):
         
-        if not field in self.fields :
+        if not field in RESULT_FIELDS :
             raise( "field not known" )
         
-        fdx = self.fields.index(field)
+        fdx = RESULT_FIELDS.index(field)
         fdx = fdx * self.n_regions
         
         res = [];
@@ -227,8 +226,7 @@ class MultiRegionModel(object):
         
         dt = pd.DataFrame( data = { self.index_col : self.index_values })
         
-        fields = self.fields 
-        for field in fields :
+        for field in RESULT_FIELDS :
             dt[ field ] = self.result_array( field )
         
         dt["time_global"] = self.time
@@ -237,13 +235,55 @@ class MultiRegionModel(object):
     
     def result_ts(self):   
         return self.results_ts_dt
+    
+    def result_ts_init(self):   
+        self.results_ts_dt = pd.DataFrame(columns = [ "time_global" ] + RESULT_FIELDS )
+         
+    def step_to_synch_point(self,synch_param,synch_value,verbose = True, maxSteps = 100):
+        
+        # reset the results_ts 
+        self.result_ts_init()
+        initial_offsets = self.time_offsets
+        initial_time    = self.result_array( "time" )
+        self.set_pause( False )
+        
+        if not isinstance(synch_value, list ) :
+            synch_value = [ synch_value ] * self.n_regions
+        
+        for step in range( maxSteps ) :
+        
+            # pause procesess that have reached the synch point
+            res = self.result_array( synch_param )    
+            n_waiting = 0     
+            for j in range( n_regions ) :
+                if res[ j ] >= synch_value[ j ] :
+                    self.set_pause_in_region( j, True )
+                    n_waiting = n_waiting + 1;
+              
+            # if all at synch point, wait  
+            if n_waiting == self.n_regions :
+                model.set_pause( False )
+                break;
+            
+            if verbose :
+                print( "step " + str( step ) + "; " + str( n_waiting ) + "/" + str( self.n_regions ) + " reached synch point" )
+            
+            model.one_step_wait()
+        
+        # failure to synch
+        if n_waiting == self.n_regions :
+            if verbose :
+                print( "Not all regions reached the target after maxSteps" )
+            return False
+        
+        return True
+
         
       
       
 if __name__ == '__main__':
         
-    max_steps = 50
-    sync_inf  = 50
+    max_steps = 20
     
     file_param =  "~/Downloads/ox_bdi_data/baseline_parameters_calibrated_by_stp.csv"
     params     = pd.read_csv( file_param, sep = ",", comment = "#", skipinitialspace = True )    
@@ -255,6 +295,9 @@ if __name__ == '__main__':
     model = MultiRegionModel( params, index_col = "stp" )
     model.one_step_wait()
     
+    model.step_to_synch_point("total_infected", 50 )
+    model.update_running_params( "lockdown_on", 1, 0)
+    
     for i in range( max_steps ) :
         
         model.one_step_wait()
@@ -263,18 +306,7 @@ if __name__ == '__main__':
         for j in range( n_regions ) :
             resStr = resStr + str( res[j] ) + "|"
         print( resStr )
-        
-        if i > 10 :
-            model.update_running_params( "lockdown_on", 1, 0)
-        
-        n_waiting = 0     
-        for j in range( n_regions ) :
-            if res[ j ] >= sync_inf :
-                model.set_pause_in_region(j,True)
-                n_waiting = n_waiting + 1;
-                
-        if n_waiting == n_regions :
-            model.set_pause(False)
+    
                     
     model.terminate_all_jobs()
     
