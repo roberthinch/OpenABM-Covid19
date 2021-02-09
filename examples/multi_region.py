@@ -4,6 +4,10 @@ from numpy import double
 import example_utils as utils
 import pandas as pd
 import sys
+import datetime
+import math
+from numpy.dual import norm
+import numpy as np
 
 sys.path.append("../src/COVID19")
 import covid19
@@ -16,8 +20,14 @@ RESULT_FIELDS = [
     "time",
     "total_infected",
     "total_death",
-    "n_critical"  
+    "n_critical",
+    "n_critical_cs",
+    "n_infected_mutant"
 ]
+RESULT_FIELDS_NON_NORMALIZE = [
+    "time"
+]
+
 
 class WorkerJob(object):
     def __init__(
@@ -31,7 +41,11 @@ class WorkerJob(object):
             n_regions,
             init_params,
             update_param,
-            update_value
+            update_value,
+            seed_inf,
+            seed_strain_mult,
+            seed_inf_2,
+            seed_strain_mult_2
         ):
         self._e_go   = e_go
         self._e_global_wait = e_global_wait
@@ -43,6 +57,11 @@ class WorkerJob(object):
         self._init_params = init_params
         self._update_param = update_param
         self._update_value = update_value
+        self._seed_inf     = seed_inf
+        self._seed_strain_mult = seed_strain_mult
+        self._seed_inf_2     = seed_inf_2
+        self._seed_strain_mult_2 = seed_strain_mult_2
+        self._n_critical_cs = 0
 
         self._e_go.wait()
         self._initialize_model()
@@ -60,8 +79,17 @@ class WorkerJob(object):
         self._model = sim.env.model
            
     def _one_step_work(self):
+        
+        if self._seed_inf[ self._idx ] > 0 :
+            self._model.seed_infect( self._seed_inf[ self._idx ], strain_multiplier = self._seed_strain_mult[ self._idx ])
+        if self._seed_inf_2[ self._idx ] > 0 :
+            self._model.seed_infect( self._seed_inf_2[ self._idx ], strain_multiplier = self._seed_strain_mult_2[ self._idx ])
         self._model.one_time_step()
         res = self._model.one_time_step_results()
+        
+        # add cumsum of n_critical by hand 
+        self._n_critical_cs = self._n_critical_cs + res[ "n_critical" ]
+        res["n_critical_cs"] = self._n_critical_cs 
         
         for fdx in range( len( RESULT_FIELDS ) ) :
             self._data[self._idx + (fdx * self._n_regions) ]= res[ RESULT_FIELDS[fdx]]        
@@ -91,9 +119,13 @@ def create_WorkerJob(
         n_regions,
         init_params,
         update_param,
-        update_value
+        update_value,
+        seed_inf,
+        seed_strain_mult,
+        seed_inf_2,
+        seed_strain_mult_2
     ):
-    worker = WorkerJob(e_go, e_global_wait,e_job,step_type,idx,shared_data,n_regions,init_params,update_param,update_value)
+    worker = WorkerJob(e_go, e_global_wait,e_job,step_type,idx,shared_data,n_regions,init_params,update_param,update_value,seed_inf,seed_strain_mult,seed_inf_2,seed_strain_mult_2)
     
     while True :
         worker.run()
@@ -114,11 +146,16 @@ class MultiRegionModel(object):
         self._time_offsets = [0] * n_regions
      
         self._results      = multiprocessing.Array("i", n_regions * len( RESULT_FIELDS ) )   
-        self._index_values = params[ index_col ]
+        self._index_values = params[ index_col ].tolist()
+        self._n_total      = params[ "n_total" ].tolist()
         self._index_col    = index_col
         self._step_type    = multiprocessing.Value('i',0)
         self._update_param = multiprocessing.Value('i',0)
         self._update_value = multiprocessing.Value('d', 0)
+        self._seed_inf     = multiprocessing.Array("i", n_regions )   
+        self._seed_strain_mult = multiprocessing.Array("d", n_regions )   
+        self._seed_inf_2     = multiprocessing.Array("i", n_regions )   
+        self._seed_strain_mult_2 = multiprocessing.Array("d", n_regions )   
         self._result_ts_init()
         
         params.drop(columns=[ index_col ],inplace=True)
@@ -128,7 +165,11 @@ class MultiRegionModel(object):
             e_job = multiprocessing.Event()
             e_go = multiprocessing.Event()
             self._results[j] = 0
-
+            self._seed_inf[j] = 0
+            self._seed_strain_mult[j] = 1
+            self._seed_inf_2[j] = 0
+            self._seed_strain_mult_2[j] = 1
+            
             init_params = params[j] 
             init_params["rng_seed"] = j
             if turn_off_contract_tracing :
@@ -140,7 +181,7 @@ class MultiRegionModel(object):
             process = multiprocessing.Process(
                 name   = 'block', 
                 target = create_WorkerJob,
-                args   = (e_go,self._e_global_wait,e_job,self._step_type,j,self._results,n_regions,init_params,self._update_param,self._update_value)
+                args   = (e_go,self._e_global_wait,e_job,self._step_type,j,self._results,n_regions,init_params,self._update_param,self._update_value,self._seed_inf, self._seed_strain_mult,self._seed_inf_2, self._seed_strain_mult_2)
             )
             process.start()
             self._processes.append(process)
@@ -176,12 +217,15 @@ class MultiRegionModel(object):
         
         self._results_ts_dt = pd.concat( [ self._results_ts_dt, self.result_dt() ] )
         
-    def update_running_params(self,param,value,index=None):
+    def update_running_params(self,param,value,index=None,index_val=None):
 
-        if index == None :
+        if ( index == None ) & ( index_val == None ) :
             for j in range( self._n_regions) :
-                self.update_running_params(param, value, j)
+                self.update_running_params(param, value, index=j)
             return
+        
+        if ( index == None) & ( index_val != None ) :
+            index = self._index_values.index(index_val)
         
         # set the param to update and value in shared memory        
         param_idx = PYTHON_SAFE_UPDATE_PARAMS.index(param)
@@ -237,8 +281,19 @@ class MultiRegionModel(object):
                     
         return dt      
     
-    def result_ts(self):   
-        return self._results_ts_dt
+    def result_ts(self,normalize=False):   
+        dt = self._results_ts_dt
+        
+        if normalize :
+            dt_pop = pd.DataFrame( data = { "n_total":self._n_total, self._index_col : self._index_values } )
+            dt = pd.merge( dt, dt_pop, on = self._index_col )
+            
+            for col in RESULT_FIELDS :
+                if col not in RESULT_FIELDS_NON_NORMALIZE :
+                    dt[ col ] = dt[ col ] / dt[ "n_total" ] * 1e5
+            dt.drop( columns = [ "n_total" ], inplace = True )
+            
+        return dt
     
     def _result_ts_init(self):   
         self._results_ts_dt = pd.DataFrame(columns = RESULT_FIELDS )
@@ -297,7 +352,7 @@ class MultiRegionModel(object):
         dt_result  = pd.merge( dt_result, dt_offsets, on = self._index_col )
         dt_result[ "time" ] = dt_result[ "time" ] + dt_result[ "time_offset" ]
         dt_result = dt_result[ dt_result["time"] > -t_align ]
-        dt_result.drop( columns = [ "time_offset" ] )
+        dt_result.drop( columns = [ "time_offset" ], inplace = True )
         dt_result.drop_duplicates( inplace=True )
         self._results_ts_dt = dt_result
 
@@ -306,30 +361,116 @@ class MultiRegionModel(object):
       
 if __name__ == '__main__':
         
-    max_steps = 20
-    
+    max_steps = 285
+    index_col = "stp"
+    synch_col = "n_critical_cs"
+    max_pop   = 1e6
+    factor_pop = 0.2
+    strain_mult = 1.5
+    strain_intro = 160
+    transfer_index_from_col = "stp_from"
+    transfer_index_to_col   = "stp_to"
+     
     file_param =  "~/Downloads/ox_bdi_data/baseline_parameters_calibrated_by_stp.csv"
     params     = pd.read_csv( file_param, sep = ",", comment = "#", skipinitialspace = True )    
+    params[ "infectious_rate"] = params[ "infectious_rate"]  * 0.9 # reduce due to transfers
     
-    params["n_total"] = params["n_total"] / 100
-    params.round({"n_total" : 0 })
-    n_regions = len( params.index )
+    file_npi =  "~/Downloads/ox_bdi_data/npis_by_stp.csv"
+    npis     = pd.read_csv( file_npi, sep = ",", comment = "#", skipinitialspace = True )    
+    npis[ "date" ] = pd.to_datetime( npis["date"] )
+    
+    file_synch = "~/Downloads/ox_bdi_data/lockdown_metrics.csv"
+    synch      = pd.read_csv( file_synch, sep = ",", comment = "#", skipinitialspace = True )    
+    synch.rename( columns = { "location_id":index_col, "metric_value":"synch_value"}, inplace = True )
+    params     = pd.merge( params, synch[[ index_col,"synch_value"]], on = index_col )
+    
+    synch_date = datetime.datetime( 2020,3,23)
+    npis[ "synch_date"] = synch_date
+    npis[ "day"] = ( npis["date"] - npis["synch_date"]).dt.days
+    npi_param_cols = list(set(npis.columns) & set(PYTHON_SAFE_UPDATE_PARAMS))    
 
-    model = MultiRegionModel( params, index_col = "stp" )
+    file_transfers = "/Users/hinchr/Dropbox/Rob/C/OpenABM-Covid19/examples/transfer_csv"
+    transfers = pd.read_csv( file_transfers, sep = ",", comment = "#", skipinitialspace = True ) 
+    transfers[ "frac"] = transfers["frac"] * 2
+    #transfers = transfers[ transfers["frac"] > 0.001]   
+           
+    params["n_total_raw"] = params["n_total"]
+    params["n_total"] = params["n_total"] * factor_pop
+    params.round({"n_total" : 0 })
+    params[ "synch_value" ] = params[ "synch_value"] * params["n_total"] / params["n_total_raw"]
+    params.drop( columns = ["n_total_raw"], inplace = True)
+    n_regions = len( params.index )
     
-    model.step_to_synch_point("total_infected", 50 )
-    model.update_running_params( "lockdown_on", 1 )
+    n_synch = params["synch_value"].to_list()
+    params.drop( columns = ["synch_value"], inplace = True )
+ 
+    model = MultiRegionModel( params, index_col = index_col )
     
-    for i in range( max_steps ) :
+    for rdx in range( n_regions ) :
+        model._seed_strain_mult_2[rdx] = strain_mult
+    
+    model.step_to_synch_point(synch_col, n_synch )
+    
+    df_inf = pd.DataFrame({ index_col: model._index_values, "order" : range( n_regions)})
+    new_inf = np.array( model.result_array( "total_infected") )
+    new_inf_2 = np.array( model.result_array( "n_infected_mutant") )
+    
+    transfers = pd.merge(transfers, df_inf, left_on = transfer_index_to_col, right_on = index_col )
+    df_inf.rename( columns = {"order": "order_2"}, inplace = True)
+    
+    for day in range( max_steps ) :
         
+        day_npi = npis[ npis[ "day"] == day ]
+        if len( day_npi ) > 0 :
+            index_vals = day_npi[ index_col ].tolist()
+            for param in npi_param_cols :
+                param_vals = day_npi[ param ].tolist()
+                for idx, index_val in enumerate(index_vals):
+                    model.update_running_params(param, param_vals[idx], index_val = index_val)
+              
+        if day == strain_intro :
+            model._seed_inf_2[35]=5
+                    
         model.one_step_wait()
-        resStr = "time: " + str( i  ) + ": "
-        res    = model.result_array("total_infected")
+        
+        # calculate transfwers
+        old_inf = new_inf 
+        old_inf_2 = new_inf_2 
+        new_inf = np.array( model.result_array( "total_infected") )
+        new_inf_2 = np.array( model.result_array( "n_infected_mutant") )
+        df_inf[ "new_infected"] = ( new_inf - old_inf ) - (new_inf_2 - old_inf_2)
+        df_inf[ "new_infected_2"] = new_inf_2 - old_inf_2
+        df = pd.merge( df_inf, transfers, right_on = transfer_index_from_col, left_on = index_col, how = "left" )
+        df[ "n_trans" ] = df[ "frac" ] * df[ "new_infected" ]
+        df[ "n_trans_2" ] = df[ "frac" ] * df[ "new_infected_2" ]
+        df = df.groupby([ "order" ])[['n_trans','n_trans_2']].sum().reset_index()
+        df = pd.merge(df_inf, df, left_on = "order_2", right_on = "order", how = "left")
+        df.fillna(0,inplace = True)
+        df.sort_values(by=['order_2'])
+        df["n_trans"] = np.random.poisson( df["n_trans"])
+        df["n_trans_2"] = np.random.poisson( df["n_trans_2"])
+        n_trans = df["n_trans"].values
+        n_trans_2 = df["n_trans_2"].values
+       
+        for rdx in range( n_regions ) :
+            model._seed_inf[rdx] = n_trans[ rdx ]
+            model._seed_inf_2[rdx] = n_trans_2[ rdx ]
+            
+                
+        resStr = "time: " + str( day  ) + ": "
+        #res    = model.result_array("total_infected")
+        res    = df[ "new_infected" ].values
+        for j in range( n_regions ) :
+            resStr = resStr + str( res[j] ) + "|"
+       # res    = model.result_array("n_infected_mutant")
+        res    = df[ "new_infected_2" ].values
         for j in range( n_regions ) :
             resStr = resStr + str( res[j] ) + "|"
         print( resStr )
         
-    print( model.result_ts().groupby("time").size())
+    model.result_ts(normalize=True).to_csv("temp.csv") 
+    
+    print( model.result_ts(normalize=True))
     
     del model
 
