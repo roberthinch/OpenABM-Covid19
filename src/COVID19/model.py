@@ -741,6 +741,13 @@ class Model:
 
         return covid19.seed_infect_by_idx( self.c_model, ID, strain_multiplier, network_id );
 
+    def seed_infect(self, n_to_infect, strain_multiplier = 1, network_id = -1, adult_only = True ):
+        
+        if strain_multiplier < 0 :
+            raise ModelParameterException( "strain_multiplier must be positive")
+
+        return covid19.seed_infect( self.c_model, n_to_infect, strain_multiplier, network_id, adult_only );
+    
     def get_network_info(self, max_ids= 1000):
            
         if max_ids > 1e6 :
@@ -912,6 +919,7 @@ class Model:
         results["n_quarantine_events_app_user"] = self.c_model.n_quarantine_events_app_user
         results["n_quarantine_release_events_app_user"] = \
             self.c_model.n_quarantine_release_events_app_user
+        results["n_infected_mutant"] = self.c_model.n_infected_mutant;
             
         results["R_inst"] = covid19.calculate_R_instanteous( self.c_model, self.c_model.time, 0.5 )
         results["R_inst_05"] = covid19.calculate_R_instanteous( self.c_model, self.c_model.time, 0.05 )

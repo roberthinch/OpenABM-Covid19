@@ -25,53 +25,53 @@ typedef struct individual individual;
 struct individual{
 	long idx;
 	long house_no;
-	int age_group;
-	int age_type;
-	int occupation_network;
+	short age_group;
+	short age_type;
+	short occupation_network;
 
-	int base_random_interactions;
-	int random_interactions;
-	int n_interactions[MAX_DAILY_INTERACTIONS_KEPT];
+	short base_random_interactions;
+	short random_interactions;
+	short n_interactions[MAX_DAILY_INTERACTIONS_KEPT];
 	interaction *interactions[MAX_DAILY_INTERACTIONS_KEPT];
 
-	int status;
-	double hazard;
-	double infectiousness_multiplier;
+	short status;
+	float hazard;
+	float infectiousness_multiplier;
 	event *current_disease_event;
 	event *next_disease_event;
 	infection_event *infection_events;
 
-	int quarantined;
+	short quarantined;
 	event *quarantine_event;
 	event *quarantine_release_event;
-	int quarantine_test_result;
+	short quarantine_test_result;
 	
 	trace_token *trace_tokens;
 	trace_token *index_trace_token;
 	event *index_token_release_event;
-	double traced_on_this_trace;
+	float traced_on_this_trace;
 
-	int app_user;
+	short app_user;
 
-	int ward_idx;
-	int ward_type;
+	short ward_idx;
+	short ward_type;
 
-	int hospital_idx;
+	short hospital_idx;
 
-	int hospital_state;
-	int disease_progression_predicted[N_HOSPITAL_WARD_TYPES];
+	short hospital_state;
+	short disease_progression_predicted[N_HOSPITAL_WARD_TYPES];
 	event *current_hospital_event;
 	event *next_hospital_event;
 
-	int worker_type;
+	short worker_type;
 
 };
 
 struct interaction{
-	int type;
-	int network_id;
-	int traceable;
-	int manual_traceable;
+	short type;
+	short network_id;
+	short traceable;
+	short manual_traceable;
 	individual *individual;
 	interaction *next;
 };
@@ -82,15 +82,15 @@ struct interaction_block{
 };
 
 struct infection_event{
-	int *times;
+	short *times;
 	individual *infector;
-	int infector_status;
-	int infector_hospital_state;
-	int infector_network;
-	int time_infected_infector;
+	short infector_status;
+	short infector_hospital_state;
+	short infector_network;
+	short time_infected_infector;
 	infection_event *next;
-	int is_case;
-	int network_id;
+	short is_case;
+	short network_id;
 	float strain_multiplier;
 };
 
@@ -104,6 +104,8 @@ struct infection_event{
 
 #define is_in_hospital( indiv ) ( ( indiv->status == HOSPITALISED || indiv->status == CRITICAL || indiv->status == HOSPITALISED_RECOVERING ) )
 #define not_in_hospital( indiv ) ( (indiv->hospital_state == NOT_IN_HOSPITAL) || (indiv->hospital_state == DISCHARGED) )
+
+#define is_adult( indiv ) ( indiv->age_type == AGE_TYPE_ADULT )
 
 /************************************************************************/
 /******************************  Functions  *****************************/

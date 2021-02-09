@@ -57,6 +57,7 @@ model* new_model( parameters *params )
     gsl_rng_set( rng, params->rng_seed );
 
 	update_intervention_policy( model_ptr, model_ptr->time );
+	set_up_counters( model_ptr );
 
 	model_ptr->event_lists = calloc( N_EVENT_TYPES, sizeof( event_list ) );
 	for( type = 0; type < N_EVENT_TYPES;  type++ )
@@ -78,7 +79,6 @@ model* new_model( parameters *params )
 	set_up_app_users( model_ptr );
 	set_up_trace_tokens( model_ptr );
 	set_up_risk_scores( model_ptr );
-	set_up_counters( model_ptr );
 
 	model_ptr->n_quarantine_days = 0;
 
@@ -260,6 +260,8 @@ void set_up_counters( model *model ){
 	model->n_quarantine_app_user = 0;
 	model->n_quarantine_app_user_infected = 0;
 	model->n_quarantine_app_user_recovered = 0;
+	model->n_infected_mutant = 0;
+
 	// Daily totals
 	model->n_quarantine_events = 0;
 	model->n_quarantine_events_app_user = 0;

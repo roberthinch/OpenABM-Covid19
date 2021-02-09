@@ -90,6 +90,7 @@ struct model{
 	long n_quarantine_events_app_user;
 	long n_quarantine_release_events;
 	long n_quarantine_release_events_app_user;
+	long n_infected_mutant;
 
 	hospital *hospitals;
 };

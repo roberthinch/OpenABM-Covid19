@@ -21,8 +21,8 @@ struct trace_token{
 	trace_token *last_index;
 	trace_token *next;
 	trace_token *last;
-	int contact_time;
-	int index_status;
+	short contact_time;
+	short index_status;
 };
 
 /************************************************************************/

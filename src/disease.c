@@ -270,6 +270,49 @@ short seed_infect_by_idx(
 }
 
 /*****************************************************************************************
+*  Name:		seed_infect
+*  Description: infects a number of new people randomly
+*  Returns:		void
+******************************************************************************************/
+short seed_infect(
+	model *model,
+	long number_to_infect,
+	float strain_multiplier,
+	int network_id,
+	short adult_only
+)
+{
+	long n_total = model->params->n_total;
+	long max_trials = n_total * 2;
+	long trial = 0;
+	long idx;
+	individual *infected;
+
+	while( trial < max_trials )
+	{
+		trial++;
+		idx = gsl_rng_uniform_int( rng, n_total );
+
+		if( adult_only )
+		{
+			infected = &(model->population[ idx ]);
+
+			if( is_adult( infected ) )
+				continue;
+		}
+
+		if( seed_infect_by_idx( model, idx, strain_multiplier, network_id ) )
+			number_to_infect--;
+
+		if( number_to_infect == 0 )
+			break;
+	}
+
+	return trial != max_trials;
+}
+
+
+/*****************************************************************************************
 *  Name:		new_infection
 *  Description: infects a new individual from another individual
 *  Returns:		void
@@ -308,6 +351,9 @@ void new_infection(
 	}
 	infected->infection_events->time_infected_infector =
 		time_infected_infection_event(infector->infection_events);
+
+	if( fabs( infected->infection_events->strain_multiplier - 1.0 ) > 1e-3 )
+		model->n_infected_mutant++;
 }
 
 /*****************************************************************************************
