@@ -6,7 +6,7 @@
 #!/bin/bash       
 PARAM_DIR="../tests/data/baseline_parameters.csv"
 EXE="../src/covid19ibm.exe"
-PROFILE=1 # 0=no profile; 1=time; 2=memory
+PROFILE=1 # 0=no profile; 1=time; 2=memory; 3=valgrind
 
 START=`date +%s`
 if [ $PROFILE == 1 ]
@@ -21,6 +21,10 @@ fi
 if [ $PROFILE == 0 ]
 then
 $EXE $PARAM_DIR 1
+fi
+if [ $PROFILE == 3 ]
+then
+valgrind --tool=memcheck --leak-check=full --track-origins=yes $EXE $PARAM_DIR 
 fi
 
 
