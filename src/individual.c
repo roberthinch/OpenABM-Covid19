@@ -281,7 +281,10 @@ void set_recovered( individual *indiv, parameters* params, int time, model *mode
 			model->n_quarantine_app_user_recovered++;
 	}
 
-	indiv->status        = RECOVERED;
+	indiv->status = RECOVERED;
+	if( indiv->vaccine_status == VACCINE_PROTECTED_FULLY )
+		indiv->status = VACCINE_PROTECT;
+
 	indiv->current_disease_event = NULL;
 	update_random_interactions( indiv, params );
 }
