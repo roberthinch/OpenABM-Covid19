@@ -25,6 +25,8 @@ Collate:
   Model.R
   Simulation.R
   VaccineSchedule.R
+  plot_utils.R
+  plots.R
 Suggests:
     testthat
 RoxygenNote: 7.1.1
